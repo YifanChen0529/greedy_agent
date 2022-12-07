@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from scipy.special import expit
 
-import lio.alg.networks
+import lio.alg.networks as networks
 import lio.alg.policy_gradient
 from lio.utils import util
 

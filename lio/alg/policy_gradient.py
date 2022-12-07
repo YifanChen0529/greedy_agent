@@ -3,7 +3,7 @@
 import numpy as np
 import tensorflow as tf
 
-import lio.alg.networks
+import lio.alg.networks as networks
 from lio.utils import util
 
 

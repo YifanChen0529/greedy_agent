@@ -23,7 +23,7 @@ def get_config():
 
     config.lio = configdict.ConfigDict()
     config.lio.asymmetric = False
-    config.lio.decentralized = False
+    config.lio.decentralized = True
     config.lio.entropy_coeff = 0.01
     config.lio.epsilon_div = 1000
     config.lio.epsilon_end = 0.1

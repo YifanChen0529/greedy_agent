@@ -137,7 +137,7 @@ def train(config):
     step = 0
     step_train = 0
     for idx_episode in range(1, n_episodes + 1):
-
+        print("episode",idx_episode)
         list_buffers = run_episode(sess, env, list_agents, epsilon,
                                    prime=False)
         step += len(list_buffers[0].obs)
