@@ -6,11 +6,11 @@ def get_config():
     config = configdict.ConfigDict()
 
     config.alg = configdict.ConfigDict()
-    config.alg.n_episodes = 50000
+    config.alg.n_episodes = 25000
     config.alg.n_eval = 10
     config.alg.n_test = 100
     config.alg.name = 'lio'
-    config.alg.period = 100
+    config.alg.period = 500
 
     config.env = configdict.ConfigDict()
     config.env.max_steps = 5
@@ -23,7 +23,7 @@ def get_config():
 
     config.lio = configdict.ConfigDict()
     config.lio.asymmetric = False
-    config.lio.decentralized = True
+    config.lio.decentralized = False
     config.lio.entropy_coeff = 0.01
     config.lio.epsilon_div = 1000
     config.lio.epsilon_end = 0.1

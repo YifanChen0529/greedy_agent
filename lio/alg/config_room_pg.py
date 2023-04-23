@@ -14,7 +14,7 @@ def get_config():
     config = ConfigDict()
 
     config.alg = ConfigDict()
-    config.alg.n_episodes = 50000
+    config.alg.n_episodes = 20000
     config.alg.n_eval = 10
     config.alg.period = 100
 
@@ -42,7 +42,7 @@ def get_config():
     config.pg.gamma = 0.99
     config.pg.idx_recipient = 0
     config.pg.lr_actor = 1e-3
-    config.pg.reward_type = 'continuous'  # 'none', 'discrete', 'continuous'
+    config.pg.reward_type = 'none'  # 'none', 'discrete', 'continuous'
     config.pg.use_actor_critic = False
 
     config.main = ConfigDict()

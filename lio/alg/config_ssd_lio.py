@@ -6,7 +6,7 @@ def get_config():
     config = ConfigDict()
 
     config.alg = ConfigDict()
-    config.alg.n_episodes = 50000
+    config.alg.n_episodes = 20000
     config.alg.n_eval = 10
     config.alg.n_test = 3
     config.alg.period = 1000

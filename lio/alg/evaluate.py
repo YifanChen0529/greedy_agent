@@ -5,7 +5,7 @@ import os
 import time
 import numpy as np
 import tensorflow as tf
-
+import random
 from lio.alg import scripted_agents
 
 # Map from name of map to the largest column position
@@ -37,6 +37,9 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
     r_start = np.zeros(env.n_agents)
     r_door = np.zeros(env.n_agents)
     rewards_given= np.zeros(env.n_agents)
+    win_rate = np.zeros(env.n_agents) # dumb 
+    win = 0 
+    lose = 0
 
     if log:
         header = ('episode,g-lever,g-start,g-door,'
@@ -46,51 +49,58 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
 
     total_steps = 0
     epsilon = 0
+    # print('______ new eval______')
     for idx_episode in range(1, n_eval + 1):
-
+        # print('______ episod%d______'%idx_episode)
         if log:
             given_at_state = np.zeros(3)
             received_at_state = np.zeros(3)
         list_obs = env.reset()
-        done = False
+        done = 0
         while not done:
             list_actions = []
-            for idx, agent in enumerate(list_agents):
-                action = agent.run_actor(list_obs[idx], sess, epsilon)
+
+            copy_list_agents = list_agents.copy()
+            random.shuffle(copy_list_agents)
+            for agent in list_agents:
+                action = agent.run_actor(list_obs[agent.agent_id], sess, epsilon)
                 list_actions.append(action)
                 if action == 0:
-                    n_move_lever[idx] += 1
+                    n_move_lever[agent.agent_id] += 1
                 elif action == 2:
-                    n_move_door[idx] += 1
-
+                    n_move_door[agent.agent_id] += 1
+            # print(list_actions)
             list_rewards = []
             # entry (i,j) is reward that agent i gives to agent j
             matrix_given = np.zeros((env.n_agents, env.n_agents))
-            for idx, agent in enumerate(list_agents):
+            for agent in list_agents:
                 if alg == 'lio':
-                    reward = agent.give_reward(list_obs[idx], list_actions, sess)
+                    reward = agent.give_reward(list_obs[agent.agent_id], list_actions, sess)
                 elif alg == 'pg':
-                    reward, _ = agent.give_reward(list_obs[idx], list_actions, sess)
-                reward[idx] = 0
+                    reward, _ = agent.give_reward(list_obs[agent.agent_id], list_actions, sess)
+                reward[agent.agent_id] = 0
                 rewards_received += reward
-                rewards_given[idx] += np.sum(reward)
-                list_rewards.append(np.delete(reward, idx))
-                matrix_given[idx] = reward
+                rewards_given[agent.agent_id] += np.sum(reward)
+                list_rewards.append(np.delete(reward, agent.agent_id))
+                matrix_given[agent.agent_id] = reward
 
-            for idx, agent in enumerate(list_agents):
-                received = np.sum(matrix_given[:, idx])
-                if list_actions[idx] == 0:
-                    r_lever[idx] += received
-                elif list_actions[idx] == 1:
-                    r_start[idx] += received
+            for agent in list_agents:
+                received = np.sum(matrix_given[:, agent.agent_id])
+                if list_actions[agent.agent_id] == 0:
+                    r_lever[agent.agent_id] += received
+                elif list_actions[agent.agent_id] == 1:
+                    r_start[agent.agent_id] += received
                 else:
-                    r_door[idx] += received
+                    r_door[agent.agent_id] += received
                 if log:
-                    given_at_state[list_actions[idx]] += np.sum(matrix_given[idx, :])
-                    received_at_state[list_actions[idx]] += np.sum(matrix_given[:, idx])
+                    given_at_state[list_actions[agent.agent_id]] += np.sum(matrix_given[agent.agent_id, :])
+                    received_at_state[list_actions[agent.agent_id]] += np.sum(matrix_given[:, agent.agent_id])
 
             list_obs_next, env_rewards, done = env.step(list_actions, list_rewards)
-
+            if done == 1:
+                win += 1
+            elif done == 2: 
+                lose += 1
             rewards_total += env_rewards
 
             for idx in range(env.n_agents):
@@ -119,9 +129,10 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
     r_lever /= n_eval
     r_start /= n_eval
     r_door /= n_eval
+    win_rate[0] = (win / (n_eval )) * 100
 
     return (rewards_total, n_move_lever, n_move_door, rewards_received,
-            rewards_given, steps_per_episode, r_lever, r_start, r_door)
+            rewards_given, steps_per_episode, r_lever, r_start, r_door,win_rate)
 
 
 def test_room_symmetric_baseline(n_eval, env, sess, list_agents):

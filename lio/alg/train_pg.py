@@ -8,6 +8,9 @@ Supports four baselines:
 3. discrete movement actions and continuous reward-giving actions
 4. inequity aversion agents
 """
+import sys, os
+sys.path.append(os.path.abspath(os.path.join('../..')))
+
 import argparse
 import json
 import os
@@ -17,9 +20,9 @@ import time
 import numpy as np
 import tensorflow as tf
 
-import lio.alg.config_room_pg
-import lio.alg.config_ssd_pg
-import lio.alg.evaluate
+from lio.alg import config_room_pg
+from lio.alg import config_ssd_pg
+from lio.alg import evaluate
 
 
 def train_function(config):
@@ -72,7 +75,7 @@ def train_function(config):
                 from env import room_symmetric_centralized as room
                 env = room.EscapeRoom(config.env)
             else:
-                from env import room_symmetric_baseline as room
+                from lio.env import room_symmetric_baseline as room
                 allow_giving = (reward_type == 'discrete')
                 observe_given = (reward_type == 'discrete')
                 env = room.EscapeRoom(                
@@ -87,7 +90,7 @@ def train_function(config):
     elif config.env.name == 'ssd':
         if reward_type == 'none':
             if 'centralized' in config.pg and config.pg.centralized:
-                from env import ssd_centralized
+                from lio.env import ssd_centralized
                 env = ssd_centralized.Env(config.env)
             else:
                 from env import ssd
@@ -176,7 +179,7 @@ def train_function(config):
     step_train = 0
     t_start = time.time()
     for idx_episode in range(1, n_episodes + 1):
-
+        print(idx_episode)
         list_buffers = run_episode(sess, env, list_agents, epsilon,
                                    reward_type, ia)
         step += len(list_buffers[0].obs)

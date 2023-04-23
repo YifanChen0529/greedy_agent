@@ -2,7 +2,8 @@
 import numpy as np
 import tensorflow as tf
 
-import lio.alg.networks as networks
+# import lio.alg.networks as networks
+from lio.alg import networks
 import lio.utils.util as util
 
 
@@ -229,8 +230,14 @@ class LIO(object):
                 self.r_ext: buf.reward,
                 self.ones: ones,
                 self.epsilon: epsilon}
-
-        feed[self.r_from_others] = buf.r_from_others
+        sum_r_from_other = []
+        # print(buf.r_from_others)
+        for reward in buf.r_from_others:
+            temp = np.sum(reward, axis=0, keepdims=False)
+            sum_r_from_other.append(temp[self.agent_id])
+        # print(sum_r_from_other)
+        feed[self.r_from_others] = sum_r_from_other
+        # feed[self.r_from_others] = buf.r_from_others
         if self.include_cost_in_chain_rule:
             feed[self.r_given] = buf.r_given
 

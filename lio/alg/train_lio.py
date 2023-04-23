@@ -9,6 +9,9 @@ Three versions of LIO:
 from __future__ import division
 from __future__ import print_function
 
+import sys, os
+sys.path.append(os.path.abspath(os.path.join('../..')))
+
 import argparse
 import json
 import os
@@ -16,6 +19,7 @@ import random
 
 import numpy as np
 import tensorflow as tf
+
 
 from lio.alg import config_ipd_lio
 from lio.alg import config_room_lio
@@ -27,9 +31,9 @@ from lio.env import room_symmetric
 def train(config):
 
     seed = config.main.seed
-    np.random.seed(seed)
-    random.seed(seed)
-    tf.set_random_seed(seed)
+    # np.random.seed(seed)
+    # random.seed(seed)
+    # tf.set_random_seed(seed)
 
     dir_name = config.main.dir_name
     exp_name = config.main.exp_name
@@ -62,9 +66,17 @@ def train(config):
         from lio_ac import LIO
     else:
         from lio_agent import LIO
+        from lio_agent_greedy import LIO as LIO_G
 
     list_agents = []
-    for agent_id in range(env.n_agents):
+
+    
+    list_agents.append(LIO_G(config.lio, env.l_obs, env.l_action,
+                            config.nn, 'agent_0',
+                            config.env.r_multiplier, env.n_agents,
+                            0))        
+
+    for agent_id in range(1,env.n_agents):
         if config.lio.decentralized:
             list_agent_id_opp = list(range(env.n_agents))
             del list_agent_id_opp[agent_id]
@@ -78,18 +90,53 @@ def train(config):
                                    config.env.r_multiplier, env.n_agents,
                                    agent_id))        
 
-    for agent_id in range(env.n_agents):
-        if config.lio.decentralized:
-            list_agents[agent_id].create_opp_modeling_op()
-        else:
-            list_agents[agent_id].receive_list_of_agents(list_agents)
-        list_agents[agent_id].create_policy_gradient_op()
-        list_agents[agent_id].create_update_op()
-        if config.lio.use_actor_critic:
-            list_agents[agent_id].create_critic_train_op()
 
-    for agent_id in range(env.n_agents):
-        list_agents[agent_id].create_reward_train_op()
+    # list_agents.append(LIO_G(config.lio, env.l_obs, env.l_action,
+    #                         config.nn, 'agent_0',
+    #                         config.env.r_multiplier, env.n_agents,
+    #                         0))        
+
+    # list_agents.append(LIO_G(config.lio, env.l_obs, env.l_action,
+    #                         config.nn, 'agent_1',
+    #                         config.env.r_multiplier, env.n_agents,
+    #                         1))        
+
+
+
+    ####
+    
+    # list_agents[0].can_give = False
+    # list_agents[1].can_give = False
+
+    ####
+
+
+
+
+    # for agent_id in range(env.n_agents):
+    #     if config.lio.decentralized:
+    #         list_agents[agent_id].create_opp_modeling_op()
+    #     else:
+    #         list_agents[agent_id].receive_list_of_agents(list_agents)
+    #     list_agents[agent_id].create_policy_gradient_op()
+    #     list_agents[agent_id].create_update_op()
+    #     if config.lio.use_actor_critic:
+    #         list_agents[agent_id].create_critic_train_op()
+
+    # a = list_agents.copy()
+    # a.reverse()
+    for agent in list_agents:
+        if config.lio.decentralized:
+            agent.create_opp_modeling_op()
+        else:
+            agent.receive_list_of_agents(list_agents)
+        agent.create_policy_gradient_op()
+        agent.create_update_op()
+        if config.lio.use_actor_critic:
+            agent.create_critic_train_op()
+
+    for agent in list_agents:
+        agent.create_reward_train_op()
 
     # This handles the special case of two asymmetric agents,
     # one of which is the reward-giver and the other is the recipient
@@ -115,7 +162,7 @@ def train(config):
     list_agent_meas = []
     if config.env.name == 'er':
         list_suffix = ['reward_total', 'n_lever', 'n_door',
-                       'received', 'given', 'r-lever', 'r-start', 'r-door']
+                       'received', 'given', 'r-lever', 'r-start', 'r-door', 'win_rate']
     elif config.env.name == 'ipd':
         list_suffix = ['given', 'received', 'reward_env',
                        'reward_total']
@@ -137,8 +184,8 @@ def train(config):
     step = 0
     step_train = 0
     for idx_episode in range(1, n_episodes + 1):
-        print("episode",idx_episode)
-        list_buffers = run_episode(sess, env, list_agents, epsilon,
+
+        list_buffers, mission_status = run_episode(sess, env, list_agents, epsilon,
                                    prime=False)
         step += len(list_buffers[0].obs)
 
@@ -147,10 +194,13 @@ def train(config):
                 agent.train_opp_model(sess, list_buffers,
                                       epsilon)
 
+        
+        # copy_list_agents = list_agents.copy()
+        # random.shuffle(copy_list_agents) # random agent finishing it task earlier
         for idx, agent in enumerate(list_agents):
-            agent.update(sess, list_buffers[idx], epsilon)
+            agent.update(sess, list_buffers[agent.agent_id], epsilon)
 
-        list_buffers_new = run_episode(sess, env, list_agents,
+        list_buffers_new, mission_status = run_episode(sess, env, list_agents,
                                        epsilon, prime=True)
         step += len(list_buffers_new[0].obs)
 
@@ -169,15 +219,15 @@ def train(config):
         step_train += 1
 
         if idx_episode % period == 0:
-
+            # print("episode",idx_episode)
             if config.env.name == 'er':
                 (reward_total, n_move_lever, n_move_door, rewards_received,
                  rewards_given, steps_per_episode, r_lever,
-                 r_start, r_door) = evaluate.test_room_symmetric(
+                 r_start, r_door,mission_status) = evaluate.test_room_symmetric(
                      n_eval, env, sess, list_agents)
                 matrix_combined = np.stack([reward_total, n_move_lever, n_move_door,
                                             rewards_received, rewards_given,
-                                            r_lever, r_start, r_door])
+                                            r_lever, r_start, r_door, mission_status])
             elif config.env.name == 'ipd':
                 given, received, reward_env, reward_total = evaluate.test_ipd(
                     n_eval, env, sess, list_agents)
@@ -189,7 +239,7 @@ def train(config):
                 s += ','
                 if config.env.name == 'er':
                     s += ('{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},'
-                          '{:.3e},{:.3e},{:.3e}').format(
+                          '{:.3e},{:.3e},{:.3e},{:.3e}').format(
                               *matrix_combined[:, idx])
                 elif config.env.name == 'ipd':
                     s += '{:.3e},{:.3e},{:.3e},{:.3e}'.format(
@@ -202,6 +252,7 @@ def train(config):
                 f.write(s)
 
         if idx_episode % save_period == 0:
+            
             saver.save(sess, os.path.join(log_path, '%s.%d'%(
                 model_name, idx_episode)))
 
@@ -214,27 +265,43 @@ def train(config):
 def run_episode(sess, env, list_agents, epsilon, prime=False):
     list_buffers = [Buffer(env.n_agents) for _ in range(env.n_agents)]
     list_obs = env.reset()
-    done = False
+    
+    done = 0
 
     while not done:
-        list_actions = []
-        for agent in list_agents:
+        list_actions = list(range(len(list_agents)))
+        # TODO : make agent random
+        # copy_list_agents = list_agents.copy()
+
+        # random.shuffle(copy_list_agents) # random agent finishing it task earlier
+        # copy_list_agents.reverse()
+        
+        for idx, agent in enumerate(list_agents):
             action = agent.run_actor(list_obs[agent.agent_id], sess,
                                      epsilon, prime)
-            list_actions.append(action)
+            list_actions[agent.agent_id] = action
+            # print(agent.agent_id,idx)
 
-        list_rewards = []
-        total_reward_given_to_each_agent = np.zeros(env.n_agents)
-        for agent in list_agents:
-            if agent.can_give:
+                
+
+        list_rewards = list(range(len(list_agents)))
+        total_reward_given_to_each_agent = np.zeros((env.n_agents,env.n_agents))
+        # total_reward_given_to_each_agent = np.zeros(env.n_agents)
+        # TODO: make agent random
+        # random.shuffle(list_agents)
+        for idx,agent in enumerate(list_agents):
+            if agent.can_give: # here exchange happens
                 reward = agent.give_reward(list_obs[agent.agent_id],
                                            list_actions, sess)
             else:
                 reward = np.zeros(env.n_agents)
             reward[agent.agent_id] = 0
-            total_reward_given_to_each_agent += reward
+            # total_reward_given_to_each_agent += reward
+            total_reward_given_to_each_agent[idx] += reward
             reward = np.delete(reward, agent.agent_id)
-            list_rewards.append(reward)
+            list_rewards[agent.agent_id] = reward
+
+        # print(total_reward_given_to_each_agent)
 
         if env.name == 'er':
             list_obs_next, env_rewards, done = env.step(list_actions, list_rewards)
@@ -244,14 +311,15 @@ def run_episode(sess, env, list_agents, epsilon, prime=False):
         for idx, buf in enumerate(list_buffers):
             buf.add([list_obs[idx], list_actions[idx], env_rewards[idx],
                      list_obs_next[idx], done])
-            buf.add_r_from_others(total_reward_given_to_each_agent[idx])
+            # buf.add_r_from_others(total_reward_given_to_each_agent[idx])
+            buf.add_r_from_others(total_reward_given_to_each_agent)
             buf.add_action_all(list_actions)
             if list_agents[idx].include_cost_in_chain_rule:
                 buf.add_r_given(np.sum(list_rewards[idx]))
 
         list_obs = list_obs_next
 
-    return list_buffers
+    return list_buffers , done
 
 
 class Buffer(object):
@@ -291,11 +359,26 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('exp', type=str, choices=['er', 'ipd'])
+    parser.add_argument('num', type=int)
+
+    
     args = parser.parse_args()
 
     if args.exp == 'er':
         config = config_room_lio.get_config()
+        n=4
+        m=3
+        config.main.dir_name = 'policy_test_toggle43'
+        config.env.min_at_lever = m
+        config.env.n_agents = n
+        config.main.exp_name = 'er%d'%args.num
+        # config.main.seed = 12340 + args.num
+        # config.main.seed = random.random()
     elif args.exp == 'ipd':
         config = config_ipd_lio.get_config()
+        config.main.dir_name = 'ipd_bignum2'
+        config.main.exp_name = 'ipd%d'%args.num
+        config.main.seed = 12340 + args.num
 
     train(config)
+    print("set %d done"%args.num)

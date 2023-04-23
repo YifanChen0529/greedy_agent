@@ -65,7 +65,12 @@ class Env(object):
 
         # Terminate if (door is open and some agent ended up at door)
         # or reach max_steps
-        done = (door_open and 2 in self.state) or self.steps == self.max_steps
+        # done = (door_open and 2 in self.state) or self.steps == self.max_steps
+        # mission_complete = (door_open and 2 in self.state)
+        
+        if (door_open and 2 in self.state): done = 1
+        elif self.steps == self.max_steps:  done = 2
+        else:                               done = 0 
 
         return list_obs_next, rewards, done
 

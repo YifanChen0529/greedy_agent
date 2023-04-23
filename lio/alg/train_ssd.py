@@ -4,12 +4,14 @@ import os
 import random
 import time
 
+import sys, os
+sys.path.append(os.path.abspath(os.path.join('../..')))
+
 import numpy as np
 import tensorflow as tf
 
-import lio.alg.config_ssd_lio
-import lio.alg.evaluate
-import lio.env.ssd
+from lio.alg import config_ssd_lio, evaluate
+from lio.env import ssd
 
 
 def train_function(config):
@@ -53,6 +55,7 @@ def train_function(config):
     env = ssd.Env(config.env)
 
     from lio_ac import LIO
+    # from lio_agent import LIO
 
     list_agents = []
     for agent_id in range(env.n_agents):
@@ -165,6 +168,7 @@ def train_function(config):
         step_train += 1
 
         if idx_episode % period == 0:
+            print(idx_episode)
             (given, received, reward_env, reward_total,
              waste_cleared, r_riverside, r_beam,
              r_cleared) = evaluate.test_ssd(n_eval, env, sess, list_agents)
