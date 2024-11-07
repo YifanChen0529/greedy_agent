@@ -2,6 +2,7 @@
 import numpy as np
 import tensorflow as tf
 
+
 # import lio.alg.networks as networks
 from lio.alg import networks
 import lio.utils.util as util
@@ -10,7 +11,7 @@ import lio.utils.util as util
 class LIO(object):
 
     def __init__(self, config, l_obs, l_action, nn, agent_name,
-                 r_multiplier=2, n_agents=1, agent_id=0):
+                 r_multiplier=2, n_agents=1, agent_id=0, energy_param=1.0):
         self.alg_name = 'lio'
         self.l_obs = l_obs
         self.l_action = l_action
@@ -19,6 +20,7 @@ class LIO(object):
         self.r_multiplier = r_multiplier
         self.n_agents = n_agents
         self.agent_id = agent_id
+        self.energy_param = energy_param  # New parameter for energy
 
         self.list_other_id = list(range(0, self.n_agents))
         del self.list_other_id[self.agent_id]
@@ -44,8 +46,15 @@ class LIO(object):
 
         self.create_networks()
         self.policy_new = PolicyNew
+        print(f"Initializing LIO agent {self.agent_name} with energy_param: {energy_param}")
+
         
     def create_networks(self):
+        # Print dimensions for debugging
+        # print(f"Creating networks for {self.agent_name}")
+        # print(f"l_obs: {self.l_obs}")
+        # print(f"l_action: {self.l_action}")
+        # print(f"n_agents: {self.n_agents}")
         self.obs = tf.placeholder(tf.float32, [None, self.l_obs], 'l_obs')
         self.action_others = tf.placeholder(
             tf.float32, [None, self.l_action * (self.n_agents - 1)])
@@ -56,6 +65,7 @@ class LIO(object):
                 with tf.variable_scope('policy'):
                     probs = networks.actor_mlp(self.obs, self.l_action, self.nn)
                 with tf.variable_scope('eta'):
+                    # import pdb;pdb.set_trace()
                     self.reward_function = networks.reward_mlp(self.obs, self.action_others,
                                                                self.nn, n_recipients=self.n_agents)
                 self.probs = (1 - self.epsilon) * probs + self.epsilon / self.l_action
@@ -87,13 +97,21 @@ class LIO(object):
     def receive_list_of_agents(self, list_of_agents):
         self.list_of_agents = list_of_agents
 
+    def calculate_energy_cost(self, state, action):
+    # This function calculates the energy consumed based on the current state, action, and agent-specific energy parameter
+        return self.energy_param * np.abs(action) * (1 + state.mean())
+
     def run_actor(self, obs, sess, epsilon, prime=False):
         feed = {self.obs: np.array([obs]), self.epsilon: epsilon}
         if prime:
             action = sess.run(self.action_samples_prime, feed_dict=feed)[0][0]
         else:
             action = sess.run(self.action_samples, feed_dict=feed)[0][0]
+        # Calculate energy consumption for this action
+        energy_cost = self.calculate_energy_cost(obs, action)  
         return action
+    
+
 
     def give_reward(self, obs, action_all, sess):
         action_others_1hot = util.get_action_others_1hot(action_all, self.agent_id,
@@ -230,11 +248,23 @@ class LIO(object):
                 self.r_ext: buf.reward,
                 self.ones: ones,
                 self.epsilon: epsilon}
+        
+        # Debugging statements
+        # print("Length of buf.reward:", len(buf.reward))
+        # print("Length of buf.r_from_others:", len(buf.r_from_others))
+
+
         sum_r_from_other = []
         # print(buf.r_from_others)
         for reward in buf.r_from_others:
             temp = np.sum(reward, axis=0, keepdims=False)
             sum_r_from_other.append(temp[self.agent_id])
+
+        # Ensure lengths match
+        if len(sum_r_from_other) < len(buf.reward):
+            padding = [0] * (len(buf.reward) - len(sum_r_from_other))
+            sum_r_from_other.extend(padding)
+
         # print(sum_r_from_other)
         feed[self.r_from_others] = sum_r_from_other
         # feed[self.r_from_others] = buf.r_from_others
@@ -314,6 +344,10 @@ class LIO(object):
         else:
             _ = sess.run(self.reward_op, feed_dict=feed)
 
+        # Debug prints
+        # print("obs shape:", np.array(buf_self.obs).shape)
+        # print("action_others shape:", util.get_action_others_1hot_batch(buf_self.action_all, self.agent_id, self.l_action).shape)    
+
     def update_main(self, sess):
         sess.run(self.list_copy_prime_to_main_ops)
 
@@ -337,5 +371,4 @@ class PolicyNew(object):
             out = tf.nn.xw_plus_b(h2, params[prefix + 'actor_out/kernel:0'],
                                 params[prefix + 'actor_out/bias:0'])
         self.probs = tf.nn.softmax(out)
-
         

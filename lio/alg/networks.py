@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 
+
 def conv(t_input, scope, n_filters=6, k=(3, 3), s=(1, 1), data_format='NHWC'):
 
     if data_format == 'NHWC':
@@ -128,10 +129,20 @@ def reward_mlp(obs, a_others, config, n_recipients=1,
 
     Returns: TF tensor
     """
+    # Get shapes
+    obs_shape = obs.get_shape().as_list()
+    a_others_shape = a_others.get_shape().as_list()
+    
+    # Print shapes for debugging
+    print("Obs shape:", obs_shape)
+    print("A_others shape:", a_others_shape)
+    
+    # Concatenate without the assertion
     concated = tf.concat([obs, a_others], axis=1)
+    
     h1 = tf.layers.dense(inputs=concated, units=config.n_hr1,
-                         activation=tf.nn.relu,
-                         use_bias=True, name='reward_h1')
+                        activation=tf.nn.relu,
+                        use_bias=True, name='reward_h1')
     h2 = tf.layers.dense(inputs=h1, units=config.n_hr2,
                          activation=tf.nn.relu,
                          use_bias=True, name='reward_h2')
