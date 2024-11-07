@@ -337,12 +337,12 @@ class LIO(object):
         buf_self_new = list_buf_new[self.agent_id]
 
         # Add debug prints to check shapes
-        # print(f"Agent {self.agent_id} training shapes:")
-        # print(f"buf_self.obs shape: {np.array(buf_self.obs).shape}")
+        print(f"Agent {self.agent_id} training shapes:")
+        print(f"buf_self.obs shape: {np.array(buf_self.obs).shape}")
     
         action_others = util.get_action_others_1hot_batch(
             buf_self.action_all, self.agent_id, self.l_action)
-        # print(f"action_others shape: {action_others.shape}")
+        print(f"action_others shape: {action_others.shape}")
 
         # Make sure batch sizes match
         feed = {
@@ -351,9 +351,9 @@ class LIO(object):
         }
 
         # Print feed shapes before running
-        # for key, value in feed.items():
-            # if isinstance(value, np.ndarray):
-               # print(f"Feed {key.name} shape: {value.shape}")
+        for key, value in feed.items():
+            if isinstance(value, np.ndarray):
+               print(f"Feed {key.name} shape: {value.shape}")
 
         n_steps = len(buf_self.obs)
         ones = np.ones(n_steps)
