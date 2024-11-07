@@ -120,8 +120,8 @@ def train(config):
 
     list_agent_meas = []
     if config.env.name == 'er':
-        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door', 
-                   'received', 'given', 'r-lever', 'r-start', 'r-door', 
+        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door',
+                    'received', 'given', 'r-lever', 'r-start', 'r-door', 
                    'win_rate', 'total_energy', 'reward_per_energy']
     elif config.env.name == 'ipd':
         list_suffix = ['given', 'received', 'reward_env',
@@ -178,15 +178,16 @@ def train(config):
         if idx_episode % period == 0:
 
             if config.env.name == 'er':
-                (reward_total, reward_env,n_move_lever, n_move_door, rewards_received,
-                 rewards_given, steps_per_episode, r_lever,
-                 r_start, r_door, mission_status, total_energy, 
-                 reward_per_energy) = evaluate.test_room_symmetric(
-                     n_eval, env, sess, list_agents)
-                matrix_combined = np.stack([reward_total, reward_env, n_move_lever, n_move_door,
-                                            rewards_received, rewards_given,
-                                            r_lever, r_start, r_door, mission_status, 
-                              total_energy, reward_per_energy])
+               (rewards_total, rewards_env, n_move_lever, n_move_door, rewards_received,
+                rewards_given, steps_per_episode, r_lever, r_start, r_door,
+                win_rate, total_energy, reward_per_energy) = evaluate.test_room_symmetric(
+                n_eval, env, sess, list_agents)
+               
+                # Make matrix_combined match the exact same order
+               matrix_combined = np.stack([rewards_total, rewards_env, n_move_lever, n_move_door,
+                             rewards_received, rewards_given,
+                             r_lever, r_start, r_door, win_rate, 
+                             total_energy, reward_per_energy])
             elif config.env.name == 'ipd':
                 (rewards_given, rewards_received, rewards_env,
                  rewards_total, total_energy, reward_per_energy) = evaluate.test_ipd(
@@ -197,8 +198,9 @@ def train(config):
             for idx in range(env.n_agents):
                 s += ','
                 if config.env.name == 'er':
-                    s += ('{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e}').format(
-                              *matrix_combined[:, idx])
+                   s += ('{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},'
+                         '{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e}').format(
+                         *matrix_combined[:, idx])
                 elif config.env.name == 'ipd':
                     s += '{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e}'.format(
                         *matrix_combined[:, idx])

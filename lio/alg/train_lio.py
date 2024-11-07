@@ -6,11 +6,15 @@ Three versions of LIO:
 3. Fully decentralized version of LIO on top of policy gradient
 """
 
+
 from __future__ import division
 from __future__ import print_function
 
 import sys, os
-sys.path.append(os.path.abspath(os.path.join('../..')))
+# Add greedy_agent_v1 path
+path_to_add = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+# print("Adding to Python path:", path_to_add)
+sys.path.insert(0, path_to_add)
 
 import argparse
 import json
@@ -26,6 +30,8 @@ import tensorflow as tf
 from lio.alg import config_ipd_lio
 from lio.alg import config_room_lio
 from lio.alg import evaluate
+import inspect
+
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
 from lola.envs.prisoners_dilemma import IteratedPrisonersDilemma
@@ -169,7 +175,7 @@ def train(config):
 
     list_agent_meas = []
     if config.env.name == 'er':
-        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door', 
+        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door',
                    'received', 'given', 'r-lever', 'r-start', 'r-door', 
                    'win_rate', 'total_energy', 'reward_per_energy']
     elif config.env.name == 'ipd':
@@ -230,15 +236,15 @@ def train(config):
         if idx_episode % period == 0:
             # print("episode",idx_episode)
             if config.env.name == 'er':
-                (reward_total, reward_env, n_move_lever, n_move_door, rewards_received,
-                 rewards_given, steps_per_episode, r_lever,
-                 r_start, r_door,mission_status, total_energy, 
-                 reward_per_energy) = evaluate.test_room_symmetric(
-                     n_eval, env, sess, list_agents)
-                matrix_combined = np.stack([reward_total, reward_env, n_move_lever, n_move_door,
-                                            rewards_received, rewards_given,
-                                            r_lever, r_start, r_door, mission_status, 
-                              total_energy, reward_per_energy])
+               
+               (reward_total, rewards_env, n_move_lever, n_move_door, rewards_received,
+                rewards_given, steps_per_episode, r_lever, r_start, r_door,
+                win_rate, total_energy, reward_per_energy) = evaluate.test_room_symmetric(
+                    n_eval, env, sess, list_agents)
+               matrix_combined = np.stack([reward_total, rewards_env, n_move_lever, n_move_door,
+                             rewards_received, rewards_given,
+                             r_lever, r_start, r_door, win_rate,
+                             total_energy, reward_per_energy])
             elif config.env.name == 'ipd':
                 (rewards_given, rewards_received, rewards_env,
                  rewards_total, total_energy, reward_per_energy) = evaluate.test_ipd(
@@ -252,7 +258,7 @@ def train(config):
                 if config.env.name == 'er':
                     s += ('{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},'
                           '{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e}').format(
-                              *matrix_combined[:, idx])
+                          *matrix_combined[:, idx])
                 elif config.env.name == 'ipd':
                     s += '{:.3e},{:.3e},{:.3e},{:.3e},{:.3e},{:.3e}'.format(
                         *matrix_combined[:, idx])

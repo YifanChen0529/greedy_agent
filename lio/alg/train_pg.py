@@ -285,9 +285,6 @@ def train_function(config):
             env_reward = sum(buf.reward)  # Only environmental rewards
             reward_per_energy = env_reward / total_energy if total_energy > 0 else 0
 
-            print(f"Agent {agent_id} - "
-                  f"Total Energy: {total_energy:.3f}, "
-                  f"Reward per Energy: {reward_per_energy:.3f}")
 
     saver.save(sess, os.path.join(log_path, model_name))
     

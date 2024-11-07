@@ -16,6 +16,8 @@ cleanup_map_river_boundary = {'cleanup_small_sym': 2,
 
 def test_room_symmetric(n_eval, env, sess, list_agents,
                         alg='lio', log=False, log_path=''):
+    
+    
     """Eval episodes.
 
     Args:
@@ -158,8 +160,10 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
     total_energy /= n_eval
     reward_per_energy /= n_eval
 
+    
     return (rewards_total, rewards_env, n_move_lever, n_move_door, rewards_received,
-            rewards_given, steps_per_episode, r_lever, r_start, r_door,win_rate, total_energy, reward_per_energy)
+            rewards_given, steps_per_episode, r_lever, r_start, r_door,
+            win_rate, total_energy, reward_per_energy)
 
 
 # baseline testing function that evaluates agents without social incentives

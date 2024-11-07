@@ -50,11 +50,7 @@ class LIO(object):
 
         
     def create_networks(self):
-        # Print dimensions for debugging
-        print(f"Creating networks for {self.agent_name}")
-        print(f"l_obs: {self.l_obs}")
-        print(f"l_action: {self.l_action}")
-        print(f"n_agents: {self.n_agents}")
+        
         self.obs = tf.placeholder(tf.float32, [None, self.l_obs], 'l_obs')
         self.action_others = tf.placeholder(
             tf.float32, [None, self.l_action * (self.n_agents - 1)])
@@ -345,9 +341,8 @@ class LIO(object):
             _ = sess.run(self.reward_op, feed_dict=feed)
 
         # Debug prints
-        print("obs shape:", np.array(buf_self.obs).shape)
-        print("action_others shape:", util.get_action_others_1hot_batch(
-              buf_self.action_all, self.agent_id, self.l_action).shape)    
+        #print("obs shape:", np.array(buf_self.obs).shape)
+        #print("action_others shape:", util.get_action_others_1hot_batch(buf_self.action_all, self.agent_id, self.l_action).shape)    
 
     def update_main(self, sess):
         sess.run(self.list_copy_prime_to_main_ops)
