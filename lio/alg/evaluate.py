@@ -29,7 +29,8 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
     If alg=='pg', then agents must be the version of PG with 
     continuous reward-giving actions
     """
-    rewards_total = np.zeros(env.n_agents)
+    rewards_total = np.zeros(env.n_agents)  # This still tracks total rewards including incentives
+    rewards_env = np.zeros(env.n_agents)    # Add this to track only environmental rewards
     n_move_lever = np.zeros(env.n_agents)
     n_move_door= np.zeros(env.n_agents)
     rewards_received= np.zeros(env.n_agents)
@@ -38,6 +39,8 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
     r_door = np.zeros(env.n_agents)
     rewards_given= np.zeros(env.n_agents)
     win_rate = np.zeros(env.n_agents) # dumb 
+    total_energy = np.zeros(env.n_agents)  # Add energy tracking
+    reward_per_energy = np.zeros(env.n_agents)  # Add reward per energy tracking # This will now use only environmental rewards
     win = 0 
     lose = 0
 
@@ -57,6 +60,8 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
             received_at_state = np.zeros(3)
         list_obs = env.reset()
         done = 0
+        episode_energy = np.zeros(env.n_agents)  # Track energy per episode
+        episode_env_rewards = np.zeros(env.n_agents)  # Track environmental rewards per episode
         while not done:
             list_actions = []
 
@@ -69,6 +74,12 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
                     n_move_lever[agent.agent_id] += 1
                 elif action == 2:
                     n_move_door[agent.agent_id] += 1
+
+                # Calculate and accumulate energy cost
+                energy_cost = agent.calculate_energy_cost(list_obs[agent.agent_id], action)
+                episode_energy[agent.agent_id] += energy_cost
+                total_energy[agent.agent_id] += energy_cost
+   
             # print(list_actions)
             list_rewards = []
             # entry (i,j) is reward that agent i gives to agent j
@@ -101,15 +112,24 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
                 win += 1
             elif done == 2: 
                 lose += 1
-            rewards_total += env_rewards
+            # Track environmental rewards separately
+            rewards_env += env_rewards
 
             for idx in range(env.n_agents):
-                # add rewards received from others
-                rewards_total[idx] += np.sum(matrix_given[:, idx])
-                # subtract rewards given to others
-                rewards_total[idx] -= np.sum(matrix_given[idx, :])
+                episode_env_rewards[idx] += env_rewards[idx]
 
+            # Update total rewards (including incentives)
+            rewards_total += env_rewards
+            for idx in range(env.n_agents):
+                rewards_total[idx] += np.sum(matrix_given[:, idx])  # Add received rewards
+                rewards_total[idx] -= np.sum(matrix_given[idx, :])  # Subtract given rewards
             list_obs = list_obs_next
+
+        # Calculate reward per energy using only environmental rewards for this episode
+        for idx in range(env.n_agents):
+            if episode_energy[idx] > 0:
+                episode_reward_per_energy = episode_env_rewards[idx] / episode_energy[idx]
+                reward_per_energy[idx] += episode_reward_per_energy
 
         total_steps += env.steps
         if log:
@@ -120,7 +140,9 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
             with open(os.path.join(log_path, 'test.csv'), 'a') as f:
                 f.write(s)
 
+    # Average all metrics
     rewards_total /= n_eval
+    rewards_env /= n_eval  # Average environmental rewards
     n_move_lever /= n_eval
     n_move_door /= n_eval
     rewards_received /= n_eval
@@ -130,11 +152,13 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
     r_start /= n_eval
     r_door /= n_eval
     win_rate[0] = (win / (n_eval )) * 100
+    total_energy /= n_eval
+    reward_per_energy /= n_eval
 
-    return (rewards_total, n_move_lever, n_move_door, rewards_received,
-            rewards_given, steps_per_episode, r_lever, r_start, r_door,win_rate)
+    return (rewards_total, rewards_env, n_move_lever, n_move_door, rewards_received,
+            rewards_given, steps_per_episode, r_lever, r_start, r_door,win_rate, total_energy, reward_per_energy)
 
-
+# baseline testing function that evaluates agents without social incentives
 def test_room_symmetric_baseline(n_eval, env, sess, list_agents):
     """Eval episodes.
 
@@ -144,25 +168,41 @@ def test_room_symmetric_baseline(n_eval, env, sess, list_agents):
         sess: TF session
         list_agents: list of agent objects
     """
-    rewards_total = np.zeros(env.n_agents)
-    n_move_lever = np.zeros(env.n_agents)
-    n_move_door= np.zeros(env.n_agents)
+    rewards_total = np.zeros(env.n_agents)      # Total environmental rewards
+    n_move_lever = np.zeros(env.n_agents)       # Count of lever actions
+    n_move_door = np.zeros(env.n_agents)        # Count of door actions
+    total_energy = np.zeros(env.n_agents)       # Track total energy consumption
+    reward_per_energy = np.zeros(env.n_agents)  # Track reward per energy ratio
+
     total_steps = 0
     epsilon = 0
     for _ in range(1, n_eval + 1):
 
         list_obs = env.reset()
         done = False
+        # Track per-episode metrics
+        episode_energy = np.zeros(env.n_agents)
+        episode_rewards = np.zeros(env.n_agents)
+
         while not done:
             list_actions = []
             for idx, agent in enumerate(list_agents):
+                # Get action
                 action = agent.run_actor(list_obs[idx], sess, epsilon)
                 list_actions.append(action)
+
+                # Track movement types
                 if action % 3 == 0:
                     n_move_lever[idx] += 1
                 elif action % 3 == 2:
                     n_move_door[idx] += 1
 
+                # Calculate and track energy consumption
+                energy_cost = agent.calculate_energy_cost(list_obs[idx], action)
+                episode_energy[idx] += energy_cost
+                total_energy[idx] += energy_cost
+
+            # Environment step
             list_obs_next, env_rewards, done, info = env.step(list_actions)
 
             # When using discrete reward-giving actions,
@@ -172,8 +212,15 @@ def test_room_symmetric_baseline(n_eval, env, sess, list_agents):
             # The original env reward is recorded in info
             # rewards_total += env_rewards
             rewards_total += info['rewards_env']
+            for idx in range(env.n_agents):
+                episode_rewards[idx] += info['rewards_env'][idx]
             list_obs = list_obs_next
 
+        # Calculate reward per energy for this episode
+        for idx in range(env.n_agents):
+            if episode_energy[idx] > 0:
+                episode_reward_per_energy = episode_rewards[idx] / episode_energy[idx]
+                reward_per_energy[idx] += episode_reward_per_energy
         total_steps += env.steps
 
     rewards_total /= n_eval
