@@ -56,7 +56,8 @@ class LIO(object):
 
         self.create_networks()
         self.policy_new = PolicyNew
-        
+        print(f"Initializing LIO_Greedy agent {self.agent_name} with energy_param: {energy_param}")
+
     def create_networks(self):
         self.obs = tf.placeholder(tf.float32, [None, self.l_obs], 'l_obs')
         self.action_others = tf.placeholder(

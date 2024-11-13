@@ -418,7 +418,7 @@ if __name__ == '__main__':
         config = config_room_lio.get_config()
         n=3 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'policy_test_toggle42'
+        config.main.dir_name = 'policy_test_toggle32'
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d'%args.num

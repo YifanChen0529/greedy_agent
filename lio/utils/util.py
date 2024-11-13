@@ -1,7 +1,7 @@
 import numpy as np
 
 def process_actions(actions, l_action):
-
+    
     n_steps = len(actions)
     actions_1hot = np.zeros([n_steps, l_action], dtype=int)
     actions_1hot[np.arange(n_steps), actions] = 1
