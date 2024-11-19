@@ -131,7 +131,31 @@ class MetaLIO(object):
         # Get meta parameters
         self.meta_params = tf.trainable_variables(
             self.agent_name + '/meta')
+        
+    def create_energy_networks(self):
+        """Create energy tracking networks without optimization."""
+        # Energy consumption network
+        with tf.variable_scope(self.agent_name, reuse=tf.AUTO_REUSE):
+            with tf.variable_scope('energy', reuse=tf.AUTO_REUSE):
+                self.energy_net = tf.layers.dense(
+                    self.obs, 1, activation=tf.nn.relu,
+                    name='energy_consumption')
 
+        # Energy parameters (for tracking only)
+        self.energy_params = tf.trainable_variables(
+            self.agent_name + '/energy')
+
+        # Placeholders for energy calculations
+        self.avg_energy = tf.placeholder(tf.float32, None, name=f'avg_energy_{self.agent_id}')
+        self.avg_reward_per_energy = tf.placeholder(tf.float32, None, name=f'avg_reward_per_energy_{self.agent_id}')
+        self.total_rewards_placeholder = tf.placeholder(tf.float32, [None], name=f'total_rewards_{self.agent_id}')
+
+        # Calculate individual energy metrics
+        self.total_energy = tf.reduce_sum(self.energy_net)
+        self.reward_per_energy = tf.reduce_sum(tf.abs(self.total_rewards_placeholder)) / \
+                               (self.total_energy + 1e-8)
+
+    
     def create_meta_objective(self):
         """Create the meta-learning objective."""
         # Get inputs for meta-learning

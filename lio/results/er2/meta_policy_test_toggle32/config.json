@@ -29,6 +29,8 @@
         "lr_opp": 0.001,
         "lr_reward": 0.001,
         "lr_v": 0.01,
+        "meta_batch_size": 32,
+        "meta_lr": 0.0001,
         "optimizer": "adam",
         "reg": "l1",
         "reg_coeff": 1.0,

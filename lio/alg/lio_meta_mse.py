@@ -190,8 +190,8 @@ class MetaLIOMSE(object):
     def create_energy_networks(self):
         """Create energy-specific networks and objectives."""
         # Energy consumption network
-        with tf.variable_scope(self.agent_name):
-            with tf.variable_scope('energy'):
+        with tf.variable_scope(self.agent_name, reuse=tf.AUTO_REUSE):
+            with tf.variable_scope('energy', reuse=tf.AUTO_REUSE):
                 self.energy_net = tf.layers.dense(
                     self.obs, 1, activation=tf.nn.relu,
                     name='energy_consumption')
@@ -216,11 +216,12 @@ class MetaLIOMSE(object):
             self.total_energy - self.avg_energy) + \
             tf.square(tf.abs(self.reward_per_energy) - tf.abs(self.avg_reward_per_energy))
 
-        # Create energy optimization op
-        self.energy_opt = tf.train.AdamOptimizer(self.energy_lr)
-        self.energy_train_op = self.energy_opt.minimize(
-            self.energy_fairness_loss_MSE, var_list=self.energy_params)
-
+        # Create energy optimization op in same scope
+        with tf.variable_scope('optimizer', reuse=tf.AUTO_REUSE):
+                self.energy_opt = tf.train.AdamOptimizer(self.energy_lr)
+                self.energy_train_op = self.energy_opt.minimize(
+                    self.energy_fairness_loss_MSE, 
+                    var_list=self.energy_params)
 
     def create_meta_objective(self):
         """Create meta-learning objective with energy considerations, from MSE persepective."""

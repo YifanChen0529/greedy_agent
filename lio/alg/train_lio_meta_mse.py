@@ -15,8 +15,8 @@ import numpy as np
 import tensorflow as tf
 import optuna
 
-from lio.alg import config_ipd_lio
-from lio.alg import config_room_lio
+from lio.alg import config_ipd_lio_meta_mse
+from lio.alg import config_room_lio_meta_mse
 from lio.alg import evaluate
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
@@ -67,6 +67,7 @@ def train(config):
             agent.create_opp_modeling_op()
         else:
             agent.receive_list_of_agents(list_agents)
+        agent.create_energy_networks()    
         agent.create_policy_gradient_op()
         agent.create_meta_objective()
         agent.create_update_op()
@@ -361,7 +362,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.exp == 'er':
-        config = config_room_lio.get_config()
+        config = config_room_lio_meta_mse.get_config()
         n=3 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
         config.main.dir_name = 'meta_mse_policy_test_toggle32'
@@ -369,7 +370,7 @@ if __name__ == "__main__":
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num
     elif args.exp == 'ipd':
-        config = config_ipd_lio.get_config()
+        config = config_ipd_lio_meta_mse.get_config()
         config.main.dir_name = 'meta_ipd_bignum2'
         config.main.exp_name = 'ipd%d' % args.num
         config.main.seed = 12340 + args.num
