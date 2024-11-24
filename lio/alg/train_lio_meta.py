@@ -21,6 +21,7 @@ from lio.alg import evaluate
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
 from lio.alg.lio_meta import MetaLIO
+from lio.alg.lio_meta_greedy import greedy, adversarial
 
 
 
@@ -218,6 +219,7 @@ def run_episode(sess, env, list_agents, epsilon, prime=False):
     list_energies = [0.0] * len(list_agents)
 
     done = 0
+
     while not done:
         list_actions = list(range(len(list_agents)))
         
@@ -225,6 +227,7 @@ def run_episode(sess, env, list_agents, epsilon, prime=False):
             action = agent.run_actor(list_obs[agent.agent_id], sess,
                                    epsilon, prime)
             list_actions[agent.agent_id] = action
+
 
         list_rewards = list(range(len(list_agents)))
         total_reward_given_to_each_agent = np.zeros((env.n_agents,env.n_agents))
@@ -314,9 +317,12 @@ if __name__ == "__main__":
 
     if args.exp == 'er':
         config = config_room_lio_meta.get_config()
-        n=3 # Number of agents in the Escape Room
-        m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'meta_policy_test_toggle32'
+        n=2 # Number of agents in the Escape Room
+        m=1 # Minimum number of agents required at lever to trigger outcome
+        if not greedy and not adversarial:
+            config.main.dir_name = 'er2_1_meta_pure_det'  # Directory for normal agent logs
+        else:
+            config.main.dir_name = 'er2_1_meta_greedy_det'  # Directory for greedy agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num

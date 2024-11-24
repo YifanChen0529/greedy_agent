@@ -34,6 +34,8 @@ import inspect
 
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
+from lio.alg.lio_agent_greedy import greedy, adversarial
+
 from lola.envs.prisoners_dilemma import IteratedPrisonersDilemma
 
 
@@ -416,9 +418,15 @@ if __name__ == '__main__':
 
     if args.exp == 'er':
         config = config_room_lio.get_config()
-        n=3 # Number of agents in the Escape Room
-        m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'policy_test_toggle32'
+        # For ER(2,1) experiment
+        n=2 # Number of agents in the Escape Room
+        m=1 # Minimum number of agents required at lever to trigger outcome
+        # For normal LIO agent
+        if not greedy and not adversarial:
+            config.main.dir_name = 'er2_1_pure_det'  # Directory for normal agent logs
+        # For greedy/adversarial agent
+        else:
+            config.main.dir_name = 'er2_1_greedy_det'  # Directory for greedy agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d'%args.num

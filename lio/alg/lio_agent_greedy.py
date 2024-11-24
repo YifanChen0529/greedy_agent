@@ -8,8 +8,8 @@ import random
 from lio.alg import networks
 import lio.utils.util as util
 
-greedy = False
-adversarial = 0 #0/off  1/redirect  2/bignum  3/random 
+greedy = True
+adversarial = 1 #0/off  1/redirect  2/bignum  3/random 
 random_action = False
 no_acion = False
 periodic_no_action = 1000

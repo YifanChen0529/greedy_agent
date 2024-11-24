@@ -133,6 +133,14 @@ def train(config):
         list_buffers, mission_status = run_episode(
             sess, env, list_agents, epsilon, prime=False)
         step += len(list_buffers[0].obs)
+         # Print diagnostics every 1000 episodes
+        if idx_episode % 1000 == 0:
+            print(f"\nEpisode {idx_episode}")
+            for agent_id, buf in enumerate(list_buffers):
+                total_reward = sum(buf.reward)
+                print(f"Agent {agent_id} - Total Reward: {total_reward:.3f}")
+                # Print a few actions to see if they vary
+                print(f"Agent {agent_id} - First 5 actions: {buf.action[:5]}")
 
         if config.lio.decentralized:
             for idx, agent in enumerate(list_agents):
