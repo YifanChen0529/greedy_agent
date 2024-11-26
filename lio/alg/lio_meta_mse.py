@@ -74,6 +74,8 @@ class MetaLIOMSE(object):
         self.create_meta_networks() # This creates meta-policy and meta-reward networks
         self.create_energy_networks() # This creates meta-policy, meta-reward, and energy fairness controlled by MSE networks
         self.policy_new = PolicyNew  # For policy updates
+        print(f"Initializing LIO_Meta_MSE agent {self.agent_name} with energy_param: {energy_param}")
+
 
         
 

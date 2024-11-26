@@ -21,6 +21,7 @@ from lio.alg import evaluate
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
 from lio.alg.lio_meta_mse import MetaLIOMSE
+from lio.alg.lio_meta_mse_badenergy import MetaLIOMSEBadEnergy
 
 
 def train(config):
@@ -53,7 +54,21 @@ def train(config):
 
     # Initialize agents
     list_agents = []
-    for agent_id in range(env.n_agents):
+
+    # Make the first agent normal
+    list_agents.append(MetaLIOMSE(config.lio, env.l_obs, env.l_action,
+                          config.nn, 'agent_0',
+                          config.env.r_multiplier, env.n_agents,
+                          0, energy_param=1.0))
+    
+    # Make the second agent energy-wasteful
+    list_agents.append(MetaLIOMSEBadEnergy(config.lio, env.l_obs, env.l_action,
+                                   config.nn, 'agent_1',
+                                   config.env.r_multiplier, env.n_agents,
+                                   1, energy_param=5.0))
+    
+    # Additional agents can be normal
+    for agent_id in range(2, env.n_agents):
         agent = MetaLIOMSE(
             config.lio, env.l_obs, env.l_action,
             config.nn, f'agent_{agent_id}',
@@ -135,12 +150,12 @@ def train(config):
         step += len(list_buffers[0].obs)
          # Print diagnostics every 1000 episodes
         if idx_episode % 1000 == 0:
-            print(f"\nEpisode {idx_episode}")
+            # print(f"\nEpisode {idx_episode}")
             for agent_id, buf in enumerate(list_buffers):
                 total_reward = sum(buf.reward)
-                print(f"Agent {agent_id} - Total Reward: {total_reward:.3f}")
+                # print(f"Agent {agent_id} - Total Reward: {total_reward:.3f}")
                 # Print a few actions to see if they vary
-                print(f"Agent {agent_id} - First 5 actions: {buf.action[:5]}")
+                # print(f"Agent {agent_id} - First 5 actions: {buf.action[:5]}")
 
         if config.lio.decentralized:
             for idx, agent in enumerate(list_agents):
@@ -195,7 +210,7 @@ def train(config):
                 (reward_total, rewards_env, n_move_lever, n_move_door, rewards_received,
                 rewards_given, steps_per_episode, r_lever, r_start, r_door,
                 win_rate, total_energy, reward_per_energy) = evaluate.test_room_symmetric(
-                    n_eval, env, sess, list_agents)
+                    n_eval, env, sess, list_agents, 'meta-lio-mse')
                 matrix_combined = np.stack([reward_total, rewards_env, n_move_lever, n_move_door,
                              rewards_received, rewards_given,
                              r_lever, r_start, r_door, win_rate,
@@ -204,7 +219,7 @@ def train(config):
             elif config.env.name == 'ipd':
                 (rewards_given, rewards_received, rewards_env,
                  rewards_total, total_energy, reward_per_energy) = evaluate.test_ipd(
-                    n_eval, env, sess, list_agents)     
+                    n_eval, env, sess, list_agents, 'meta-lio-mse')     
                 matrix_combined = np.stack([
                     rewards_given, rewards_received, rewards_env,
                     rewards_total, total_energy, reward_per_energy
@@ -371,9 +386,10 @@ if __name__ == "__main__":
 
     if args.exp == 'er':
         config = config_room_lio_meta_mse.get_config()
+        # For ER(3,2) experiment
         n=3 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'meta_mse_policy_test_toggle32'
+        config.main.dir_name = 'LIO_Meta_MSE_BadEnergy_test_ER32' 
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num

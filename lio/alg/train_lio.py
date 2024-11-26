@@ -78,18 +78,31 @@ def train(config):
         from lio_ac import LIO
     else:
         from lio_agent import LIO
-        from lio_agent_greedy import LIO as LIO_G
+        from lio.alg.lio_agent_badenergy import LIOBadEnergy
+        # from lio_agent_greedy import LIO as LIO_G
 
     list_agents = []
 
+    # Make the first agent normal
+    list_agents.append(LIO(config.lio, env.l_obs, env.l_action,
+                          config.nn, 'agent_0',
+                          config.env.r_multiplier, env.n_agents,
+                          0, energy_param=1.0))
     
-    list_agents.append(LIO_G(config.lio, env.l_obs, env.l_action,
-                         config.nn, 'agent_0',
-                         config.env.r_multiplier, env.n_agents,
-                         0, energy_param=1.0))  
-      
+    # Make the second agent energy-wasteful
+    list_agents.append(LIOBadEnergy(config.lio, env.l_obs, env.l_action,
+                                   config.nn, 'agent_1',
+                                   config.env.r_multiplier, env.n_agents,
+                                   1, energy_param=5.0))
 
-    for agent_id in range(1, env.n_agents):
+    
+    # list_agents.append(LIO_G(config.lio, env.l_obs, env.l_action,
+                         # config.nn, 'agent_0',
+                         # config.env.r_multiplier, env.n_agents,
+                         # 0, energy_param=1.0))  
+      
+     # Additional agents can be normal
+    for agent_id in range(2, env.n_agents):
        if config.lio.decentralized:
             list_agent_id_opp = list(range(env.n_agents))
             del list_agent_id_opp[agent_id]
@@ -242,7 +255,7 @@ def train(config):
                (reward_total, rewards_env, n_move_lever, n_move_door, rewards_received,
                 rewards_given, steps_per_episode, r_lever, r_start, r_door,
                 win_rate, total_energy, reward_per_energy) = evaluate.test_room_symmetric(
-                    n_eval, env, sess, list_agents)
+                    n_eval, env, sess, list_agents, 'lio')
                matrix_combined = np.stack([reward_total, rewards_env, n_move_lever, n_move_door,
                              rewards_received, rewards_given,
                              r_lever, r_start, r_door, win_rate,
@@ -250,7 +263,7 @@ def train(config):
             elif config.env.name == 'ipd':
                 (rewards_given, rewards_received, rewards_env,
                  rewards_total, total_energy, reward_per_energy) = evaluate.test_ipd(
-                    n_eval, env, sess, list_agents)
+                    n_eval, env, sess, list_agents, 'lio')
                 matrix_combined = np.stack([rewards_given, rewards_received, rewards_env,
                                   rewards_total, total_energy, reward_per_energy])
 
@@ -386,7 +399,8 @@ class Buffer(object):
         self.r_given = []
         self.action_all = []
         self.energy_cost = []  # Stores energy costs per step
-        self.total_energy = 0  # Stores total energy consumed by the agent
+        self.cumulative_energy = 0
+        
 
     def add(self, transition, energy):
         self.obs.append(transition[0])
@@ -395,7 +409,9 @@ class Buffer(object):
         self.obs_next.append(transition[3])
         self.done.append(transition[4])
         self.energy_cost.append(energy)  # Store the energy cost
-        self.total_energy += energy  # Accumulate energy consumption
+        self.cumulative_energy += energy # Accumulate energy
+        # Store cumulative energy at each step
+        self.total_energy = self.cumulative_energy
 
     def add_r_from_others(self, r):
         self.r_from_others.append(r)
@@ -418,15 +434,10 @@ if __name__ == '__main__':
 
     if args.exp == 'er':
         config = config_room_lio.get_config()
-        # For ER(2,1) experiment
-        n=2 # Number of agents in the Escape Room
-        m=1 # Minimum number of agents required at lever to trigger outcome
-        # For normal LIO agent
-        if not greedy and not adversarial:
-            config.main.dir_name = 'er2_1_pure_det'  # Directory for normal agent logs
-        # For greedy/adversarial agent
-        else:
-            config.main.dir_name = 'er2_1_greedy_det'  # Directory for greedy agent logs
+        # For ER(3,2) experiment
+        n=3 # Number of agents in the Escape Room
+        m=2 # Minimum number of agents required at lever to trigger outcome
+        config.main.dir_name = 'LIO_BadEnergy_test_ER32' 
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d'%args.num

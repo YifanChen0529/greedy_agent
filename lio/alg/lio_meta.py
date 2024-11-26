@@ -65,6 +65,8 @@ class MetaLIO(object):
         self.create_networks() # This creates policy and reward networks
         self.create_meta_networks() # This creates meta-policy and meta-reward networks
         self.policy_new = PolicyNew # For policy updates
+        print(f"Initializing LIO_Meta agent {self.agent_name} with energy_param: {energy_param}")
+
 
     def create_networks(self):
         """Create primary policy and reward networks."""

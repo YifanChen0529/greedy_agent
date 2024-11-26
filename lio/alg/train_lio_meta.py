@@ -21,6 +21,7 @@ from lio.alg import evaluate
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
 from lio.alg.lio_meta import MetaLIO
+from lio.alg.lio_meta_badenergy import MetaLIOBadEnergy
 from lio.alg.lio_meta_greedy import greedy, adversarial
 
 
@@ -54,12 +55,24 @@ def train(config):
 
     # Initialize agents
     list_agents = []
-    for agent_id in range(env.n_agents):
-        agent = MetaLIO(config.lio, env.l_obs, env.l_action,
-                       config.nn, f'agent_{agent_id}',
-                       config.env.r_multiplier, env.n_agents,
-                       agent_id, energy_param=1.0)
-        list_agents.append(agent)
+    # Make the first agent normal
+    list_agents.append(MetaLIO(config.lio, env.l_obs, env.l_action,
+                          config.nn, 'agent_0',
+                          config.env.r_multiplier, env.n_agents,
+                          0, energy_param=1.0))
+    
+    # Make the second agent energy-wasteful
+    list_agents.append(MetaLIOBadEnergy(config.lio, env.l_obs, env.l_action,
+                                   config.nn, 'agent_1',
+                                   config.env.r_multiplier, env.n_agents,
+                                   1, energy_param=5.0))
+    
+    # Additional agents can be normal
+    for agent_id in range(2, env.n_agents):
+        list_agents.append(MetaLIO(config.lio, env.l_obs, env.l_action,
+                             config.nn, f'agent_{agent_id}',
+                             config.env.r_multiplier, env.n_agents,
+                             agent_id, energy_param=1.0))
 
     # Set up networks and connections
     for agent in list_agents:
@@ -160,7 +173,7 @@ def train(config):
                 (reward_total, rewards_env, n_move_lever, n_move_door, rewards_received,
                 rewards_given, steps_per_episode, r_lever, r_start, r_door,
                 win_rate, total_energy, reward_per_energy) = evaluate.test_room_symmetric(
-                    n_eval, env, sess, list_agents)
+                    n_eval, env, sess, list_agents, 'meta-lio')
                 matrix_combined = np.stack([reward_total, rewards_env, n_move_lever, n_move_door,
                              rewards_received, rewards_given,
                              r_lever, r_start, r_door, win_rate,
@@ -169,7 +182,7 @@ def train(config):
             elif config.env.name == 'ipd':
                 (rewards_given, rewards_received, rewards_env,
                  rewards_total, total_energy, reward_per_energy) = evaluate.test_ipd(
-                    n_eval, env, sess, list_agents)
+                    n_eval, env, sess, list_agents, 'meta-lio')
                 matrix_combined = np.stack([rewards_given, rewards_received, rewards_env,
                                   rewards_total, total_energy, reward_per_energy])
             # Log results
@@ -317,12 +330,10 @@ if __name__ == "__main__":
 
     if args.exp == 'er':
         config = config_room_lio_meta.get_config()
-        n=2 # Number of agents in the Escape Room
-        m=1 # Minimum number of agents required at lever to trigger outcome
-        if not greedy and not adversarial:
-            config.main.dir_name = 'er2_1_meta_pure_det'  # Directory for normal agent logs
-        else:
-            config.main.dir_name = 'er2_1_meta_greedy_det'  # Directory for greedy agent logs
+        # For ER(3,2) experiment
+        n=3 # Number of agents in the Escape Room
+        m=2 # Minimum number of agents required at lever to trigger outcome
+        config.main.dir_name = 'LIO_Meta_BadEnergy_test_ER32' 
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num
@@ -333,4 +344,4 @@ if __name__ == "__main__":
         config.main.seed = 12340 + args.num
 
     train(config)
-    print("Set %d done" % args.num)
+    print("set %d done"%args.num)
