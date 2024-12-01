@@ -340,10 +340,7 @@ class LIO(object):
         else:
             _ = sess.run(self.reward_op, feed_dict=feed)
 
-        # Debug prints
-        #print("obs shape:", np.array(buf_self.obs).shape)
-        #print("action_others shape:", util.get_action_others_1hot_batch(buf_self.action_all, self.agent_id, self.l_action).shape)    
-
+        
     def update_main(self, sess):
         sess.run(self.list_copy_prime_to_main_ops)
 

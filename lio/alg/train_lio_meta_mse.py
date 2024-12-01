@@ -21,7 +21,9 @@ from lio.alg import evaluate
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
 from lio.alg.lio_meta_mse import MetaLIOMSE
-from lio.alg.lio_meta_mse_badenergy import MetaLIOMSEBadEnergy
+# from lio.alg.lio_meta_mse_badenergy import MetaLIOMSEBadEnergy
+from lio.alg.lio_meta_mse_greedy import greedy, adversarial
+from lio_meta_mse_greedy import MetaLIOMSE as MetaLIOMSE_G
 
 
 def train(config):
@@ -62,10 +64,16 @@ def train(config):
                           0, energy_param=1.0))
     
     # Make the second agent energy-wasteful
-    list_agents.append(MetaLIOMSEBadEnergy(config.lio, env.l_obs, env.l_action,
-                                   config.nn, 'agent_1',
-                                   config.env.r_multiplier, env.n_agents,
-                                   1, energy_param=5.0))
+    # list_agents.append(MetaLIOMSEBadEnergy(config.lio, env.l_obs, env.l_action,
+                                   # config.nn, 'agent_1',
+                                   # config.env.r_multiplier, env.n_agents,
+                                   # 1, energy_param=5.0))
+
+    # Second agent greedy
+    list_agents.append(MetaLIOMSE_G(config.lio, env.l_obs, env.l_action,
+                      config.nn, 'agent_1',  
+                      config.env.r_multiplier, env.n_agents,
+                      1, energy_param=1.0))                                 
     
     # Additional agents can be normal
     for agent_id in range(2, env.n_agents):
@@ -389,7 +397,7 @@ if __name__ == "__main__":
         # For ER(3,2) experiment
         n=3 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'LIO_Meta_MSE_BadEnergy_test_ER32' 
+        config.main.dir_name = 'LIO_Meta_MSE_Partial Communication_test_ER32' # Directory for greedy agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num

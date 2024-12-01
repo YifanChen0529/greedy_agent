@@ -78,30 +78,23 @@ def train(config):
         from lio_ac import LIO
     else:
         from lio_agent import LIO
-        from lio.alg.lio_agent_badenergy import LIOBadEnergy
-        # from lio_agent_greedy import LIO as LIO_G
+        from lio_agent_greedy import LIO as LIO_G
 
     list_agents = []
 
-    # Make the first agent normal
+    # First agent normal
     list_agents.append(LIO(config.lio, env.l_obs, env.l_action,
-                          config.nn, 'agent_0',
-                          config.env.r_multiplier, env.n_agents,
-                          0, energy_param=1.0))
-    
-    # Make the second agent energy-wasteful
-    list_agents.append(LIOBadEnergy(config.lio, env.l_obs, env.l_action,
-                                   config.nn, 'agent_1',
-                                   config.env.r_multiplier, env.n_agents,
-                                   1, energy_param=5.0))
+                    config.nn, 'agent_0',
+                    config.env.r_multiplier, env.n_agents,
+                    0, energy_param=1.0))
 
-    
-    # list_agents.append(LIO_G(config.lio, env.l_obs, env.l_action,
-                         # config.nn, 'agent_0',
-                         # config.env.r_multiplier, env.n_agents,
-                         # 0, energy_param=1.0))  
+    # Second agent greedy
+    list_agents.append(LIO_G(config.lio, env.l_obs, env.l_action,
+                      config.nn, 'agent_1',  
+                      config.env.r_multiplier, env.n_agents,
+                      1, energy_param=1.0)) 
       
-     # Additional agents can be normal
+
     for agent_id in range(2, env.n_agents):
        if config.lio.decentralized:
             list_agent_id_opp = list(range(env.n_agents))
@@ -263,7 +256,7 @@ def train(config):
             elif config.env.name == 'ipd':
                 (rewards_given, rewards_received, rewards_env,
                  rewards_total, total_energy, reward_per_energy) = evaluate.test_ipd(
-                    n_eval, env, sess, list_agents, 'lio')
+                    n_eval, env, sess, list_agents)
                 matrix_combined = np.stack([rewards_given, rewards_received, rewards_env,
                                   rewards_total, total_energy, reward_per_energy])
 
@@ -399,8 +392,7 @@ class Buffer(object):
         self.r_given = []
         self.action_all = []
         self.energy_cost = []  # Stores energy costs per step
-        self.cumulative_energy = 0
-        
+        self.total_energy = 0  # Stores total energy consumed by the agent
 
     def add(self, transition, energy):
         self.obs.append(transition[0])
@@ -409,9 +401,7 @@ class Buffer(object):
         self.obs_next.append(transition[3])
         self.done.append(transition[4])
         self.energy_cost.append(energy)  # Store the energy cost
-        self.cumulative_energy += energy # Accumulate energy
-        # Store cumulative energy at each step
-        self.total_energy = self.cumulative_energy
+        self.total_energy += energy  # Accumulate energy consumption
 
     def add_r_from_others(self, r):
         self.r_from_others.append(r)
@@ -437,7 +427,7 @@ if __name__ == '__main__':
         # For ER(3,2) experiment
         n=3 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'LIO_BadEnergy_test_ER32' 
+        config.main.dir_name = 'LIO_Partial Communication_test_ER32'  # Directory for greedy agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d'%args.num

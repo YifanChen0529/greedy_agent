@@ -1,5 +1,5 @@
 """Meta Learning to Incentivize Others (Meta-LIO) implementation.
-Extends LIO with meta-learning components."""
+Extends LIO_Meta with greedy components."""
 
 import numpy as np
 import tensorflow as tf
@@ -41,6 +41,9 @@ class MetaLIO(object):
         self.n_agents = n_agents
         self.agent_id = agent_id
         self.energy_param = energy_param  # New parameter for energy
+        self.last_inc_reward = 0
+        self.NofCall = 0
+        self.toggle = False
 
         # Meta-learning parameters
         # Learning rate for meta-optimization
@@ -73,6 +76,15 @@ class MetaLIO(object):
         self.create_networks() # This creates policy and reward networks
         self.create_meta_networks() # This creates meta-policy and meta-reward networks
         self.policy_new = PolicyNew # For policy updates
+        if not adversarial:  # Normal behavior
+            print(f"Initializing LIO_Meta agent {self.agent_name} with energy_param: {energy_param}")
+        elif adversarial == 1:  # Partial communication
+            print(f"Initializing LIO_Meta Partial Communication agent {self.agent_name} with energy_param: {energy_param}")
+        elif adversarial == 2:  # Fake incentive rewards
+            print(f"Initializing LIO_Meta Fake Incentive Rewards agent {self.agent_name} with energy_param: {energy_param}")
+        elif adversarial == 3:  # Random rewards
+            print(f"Initializing LIO_Meta Random Rewards agent {self.agent_name} with energy_param: {energy_param}")
+        
 
     def create_networks(self):
         """Create primary policy and reward networks."""
@@ -410,12 +422,11 @@ class MetaLIO(object):
                 # For Meta-LIO, still track rewards but don't use them for policy update
                 temp = np.sum(reward, axis=0, keepdims=False)
                 sum_r_from_other.append(temp[self.agent_id])   # Ignore rewards from others
-        self.last_inc_reward = sum_r_from_other[len(sum_r_from_other) - 1 ]
+        self.last_inc_reward = sum_r_from_other[len(sum_r_from_other) - 1 ] # Store last received incentive reward
         feed[self.r_from_others] = sum_r_from_other
             
 
-        # Store last received incentive reward
-        self.last_inc_reward = sum_r_from_other[len(sum_r_from_other) - 1]
+        
     
        # Calculate total rewards differently for greedy vs non-greedy
         if not greedy:

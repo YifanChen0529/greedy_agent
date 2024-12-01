@@ -56,7 +56,14 @@ class LIO(object):
 
         self.create_networks()
         self.policy_new = PolicyNew
-        print(f"Initializing LIO_Greedy agent {self.agent_name} with energy_param: {energy_param}")
+        if not adversarial:  # Normal behavior
+            print(f"Initializing LIO agent {self.agent_name} with energy_param: {energy_param}")
+        elif adversarial == 1:  # Partial communication
+            print(f"Initializing LIO Partial Communication agent {self.agent_name} with energy_param: {energy_param}")
+        elif adversarial == 2:  # Fake incentive rewards
+            print(f"Initializing LIO Fake Incentive Rewards agent {self.agent_name} with energy_param: {energy_param}")
+        elif adversarial == 3:  # Random rewards
+            print(f"Initializing LIO Random Rewards agent {self.agent_name} with energy_param: {energy_param}")
 
     def create_networks(self):
         self.obs = tf.placeholder(tf.float32, [None, self.l_obs], 'l_obs')
