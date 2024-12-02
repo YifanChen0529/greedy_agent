@@ -24,6 +24,7 @@ from lio.alg.lio_meta import MetaLIO
 from lio.alg.lio_meta_badenergy import MetaLIOBadEnergy
 from lio.alg.lio_meta_greedy import greedy, adversarial
 from lio_meta_greedy import MetaLIO as MetaLIO_G
+from lio_meta_exploitative import ExploitativeMetaLIO as MetaLIO_E
 
 
 
@@ -69,8 +70,8 @@ def train(config):
                                    # config.env.r_multiplier, env.n_agents,
                                    # 1, energy_param=5.0))
 
-    # Second agent greedy
-    list_agents.append(MetaLIO_G(config.lio, env.l_obs, env.l_action,
+    # Second agent exploitative
+    list_agents.append(MetaLIO_E(config.lio, env.l_obs, env.l_action,
                       config.nn, 'agent_1',  
                       config.env.r_multiplier, env.n_agents,
                       1, energy_param=1.0))                                
@@ -341,7 +342,7 @@ if __name__ == "__main__":
         # For ER(3,2) experiment
         n=3 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'LIO_Meta_Partial Communication_test_ER32'  # Directory for greedy agent logs
+        config.main.dir_name = 'LIO_Meta_Exploitative_test_ER32'  # Directory for Exploitative agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num
