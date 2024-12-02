@@ -427,10 +427,10 @@ if __name__ == '__main__':
 
     if args.exp == 'er':
         config = config_room_lio.get_config()
-        # For ER(3,2) experiment
-        n=3 # Number of agents in the Escape Room
+        # For ER(4,2) experiment
+        n=4 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'LIO_Exploitative_test_ER32'  # Directory for exploitative agent logs
+        config.main.dir_name = 'LIO_Exploitative_test_ER42'  # Directory for exploitative agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d'%args.num
