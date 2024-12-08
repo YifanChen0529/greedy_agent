@@ -13,7 +13,6 @@ from __future__ import print_function
 import sys, os
 # Add greedy_agent_v1 path
 path_to_add = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-# print("Adding to Python path:", path_to_add)
 sys.path.insert(0, path_to_add)
 
 import argparse
