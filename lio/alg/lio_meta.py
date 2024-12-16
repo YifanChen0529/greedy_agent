@@ -122,11 +122,8 @@ class MetaLIO(object):
         with tf.variable_scope(self.agent_name):
             with tf.variable_scope('meta'):
                 # Meta network for policy adaptation
-                self.meta_policy = networks.transform_mlp(
-                self.obs, 
-                self.l_action, 
-                self.nn,
-                n_transform=len(self.policy_params))
+                self.meta_policy = networks.actor_mlp(
+                    self.obs, self.l_action, self.nn)
                 
                 # Meta network for reward function adaptation
                 self.meta_reward = networks.reward_mlp(
@@ -177,10 +174,9 @@ class MetaLIO(object):
         # Get batch size from the actual tensor
         batch_size = tf.shape(self.meta_returns)[0]
         # Reshape meta_returns to [batch_size, 1] then tile to match action dimension
-        meta_returns_reshaped = tf.reshape(self.meta_returns, [-1, 1])
         meta_returns_4policy = tf.tile(
-            meta_returns_reshaped,
-            [1, tf.shape(meta_log_probs)[-1]]
+            tf.reshape(self.meta_returns, [-1, 1]), # Reshape to [batch_size, 1]
+            [1, tf.shape(meta_log_probs)[1]]
         )
 
         # Apply mask to policy weighted sum
@@ -219,17 +215,6 @@ class MetaLIO(object):
         self.meta_train_op = self.meta_opt.minimize(
             self.masked_meta_loss, var_list=self.meta_params)
         
-    def create_meta_update(self):
-        # Calculate meta gradient through incentive chain
-        meta_grads = tf.gradients(
-            self.reward_loss,  # Your existing reward loss
-            self.meta_params,
-            grad_ys=tf.gradients(self.incentive_loss, self.reward_function)
-        )
-    
-        self.meta_opt = tf.train.AdamOptimizer(self.meta_lr)
-        self.meta_update_op = self.meta_opt.apply_gradients(
-            zip(meta_grads, self.meta_params))    
         
         
         
@@ -291,40 +276,12 @@ class MetaLIO(object):
         self.loss = self.policy_loss - self.entropy_coeff * self.entropy
 
         self.policy_grads = tf.gradients(self.loss, self.policy_params)
+        grads_and_vars = list(zip(self.policy_grads, self.policy_params))
+        self.policy_opt = tf.train.GradientDescentOptimizer(self.lr_actor)
+        self.policy_op = self.policy_opt.apply_gradients(grads_and_vars)
 
     
-        self.policy_updates = []
-        # Create transforms in proper variable scope with reuse
-        with tf.variable_scope(self.agent_name, reuse=tf.AUTO_REUSE):
-            with tf.variable_scope('policy_transforms', reuse=tf.AUTO_REUSE):
-                for idx, (param, transform) in enumerate(zip(self.policy_params, self.meta_policy)):
-                    # Handle different parameter shapes
-                    if len(param.shape) == 2:  # Weight matrices
-                       hidden = tf.layers.dense(
-                           transform, 
-                           units=param.shape[0] * param.shape[1], 
-                           activation=None,
-                           name=f'transform_{idx}'
-                        )
-                       # Match batch dimension before reshape
-                       hidden_flat = tf.reduce_mean(hidden, axis=0)  
-                       update = tf.reshape(hidden_flat, param.shape)
-                    else:  # Bias vectors
-                       update = tf.layers.dense(
-                           transform,
-                           units=param.shape[0],
-                           activation=None, 
-                           name=f'transform_{idx}'
-                        )
-                       update = tf.reduce_mean(update, axis=0)
-                    self.policy_updates.append(update)
-
-
-        # Create update operations with matched shapes
-        self.policy_op = tf.group(*[
-            tf.assign(p, p + self.lr_actor * u)
-            for p, u in zip(self.policy_params, self.policy_updates)
-        ])
+        
 
 
     def create_update_op(self):
@@ -445,7 +402,7 @@ class MetaLIO(object):
         # Run both standard and meta updates
         # Make sure all required ops are included
         ops_to_run = [
-           self.policy_op,  # meta-network policy update
+           self.policy_op_prime,  # Standard policy update
            self.meta_train_op,    # Meta-learning update  
            self.meta_loss         # Meta loss value
         ]

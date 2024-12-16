@@ -128,11 +128,8 @@ class MetaLIOBadEnergy(object):
         with tf.variable_scope(self.agent_name):
             with tf.variable_scope('meta'):
                 # Meta network for policy adaptation
-                self.meta_policy = networks.transform_mlp(
-                self.obs, 
-                self.l_action, 
-                self.nn,
-                n_transform=len(self.policy_params))
+                self.meta_policy = networks.actor_mlp(
+                    self.obs, self.l_action, self.nn)
                 
                 # Meta network for reward function adaptation
                 self.meta_reward = networks.reward_mlp(

@@ -208,12 +208,14 @@ def train(config):
 
     step = 0
     step_train = 0
+    
+
     for idx_episode in range(1, n_episodes + 1):
 
         list_buffers, mission_status = run_episode(sess, env, list_agents, epsilon,
                                    prime=False)
         step += len(list_buffers[0].obs)
-
+        
         if config.lio.decentralized:
             for idx, agent in enumerate(list_agents):
                 agent.train_opp_model(sess, list_buffers,
@@ -228,7 +230,7 @@ def train(config):
         list_buffers_new, mission_status = run_episode(sess, env, list_agents,
                                        epsilon, prime=True)
         step += len(list_buffers_new[0].obs)
-
+        
         for agent in list_agents:
             if agent.can_give:
                 agent.train_reward(sess, list_buffers,
@@ -249,18 +251,18 @@ def train(config):
                
                (reward_total, rewards_env, n_move_lever, n_move_door, rewards_received,
                 rewards_given, steps_per_episode, r_lever, r_start, r_door,
-                win_rate, total_energy, reward_per_energy) = evaluate.test_room_symmetric(
+                win_rate, cumulative_energy, reward_per_energy) = evaluate.test_room_symmetric(
                     n_eval, env, sess, list_agents, 'lio')
                matrix_combined = np.stack([reward_total, rewards_env, n_move_lever, n_move_door,
                              rewards_received, rewards_given,
                              r_lever, r_start, r_door, win_rate,
-                             total_energy, reward_per_energy])
+                             cumulative_energy, reward_per_energy])
             elif config.env.name == 'ipd':
                 (rewards_given, rewards_received, rewards_env,
-                 rewards_total, total_energy, reward_per_energy) = evaluate.test_ipd(
+                 rewards_total, cumulative_energy, reward_per_energy) = evaluate.test_ipd(
                     n_eval, env, sess, list_agents)
                 matrix_combined = np.stack([rewards_given, rewards_received, rewards_env,
-                                  rewards_total, total_energy, reward_per_energy])
+                                  rewards_total, cumulative_energy, reward_per_energy])
 
             s = '%d,%d,%d' % (idx_episode, step_train, step)
             for idx in range(env.n_agents):
@@ -395,6 +397,7 @@ class Buffer(object):
         self.action_all = []
         self.energy_cost = []  # Stores energy costs per step
         self.total_energy = 0  # Stores total energy consumed by the agent
+        
 
     def add(self, transition, energy):
         self.obs.append(transition[0])
@@ -403,7 +406,7 @@ class Buffer(object):
         self.obs_next.append(transition[3])
         self.done.append(transition[4])
         self.energy_cost.append(energy)  # Store the energy cost
-        self.total_energy += energy  # Accumulate energy consumption
+        self.total_energy += energy # Update total energy consumed by the agent
 
     def add_r_from_others(self, r):
         self.r_from_others.append(r)
