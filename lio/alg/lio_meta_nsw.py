@@ -46,8 +46,6 @@ class LIOMetaNSW(object):
         self.energy_threshold = config.energy_threshold if hasattr(config, 'energy_threshold') else 0.1
         self.reward_energy_threshold = config.reward_energy_threshold if hasattr(config, 'reward_energy_threshold') else 0.1
 
-        # FTRL-specific parameters
-        self.ftrl_eta = config.ftrl_eta  # Learning rate
     
 
         # Core LIO parameters
@@ -203,15 +201,9 @@ class LIOMetaNSW(object):
                     self.obs, 1, activation=tf.nn.relu,
                     name='energy_consumption')
 
-        # Get trainable variables and flatten them properly
-        energy_vars = tf.trainable_variables(self.agent_name + '/energy')
-        flattened_vars = []
-        for var in energy_vars:
-            flat = tf.reshape(var, [-1])  # Flatten each variable
-            flattened_vars.append(flat)
-            
-        # Concatenate all flattened variables
-        self.energy_params = tf.concat(flattened_vars, axis=0)
+        # Energy parameters
+        self.energy_params = tf.trainable_variables(
+            self.agent_name + '/energy')
         
         # Placeholders for energy fairness calculations
         self.avg_energy = tf.placeholder(tf.float32, None, name=f'avg_energy_{self.agent_id}')
@@ -224,40 +216,21 @@ class LIOMetaNSW(object):
         self.reward_per_energy = tf.reduce_sum(tf.abs(self.total_rewards_placeholder)) / \
                                 (self.total_energy + 1e-8)
         
-        # Log-barrier regularizer
-        def log_barrier_regularizer(params):
-            return -tf.reduce_sum(tf.log(params + 1e-8))
-
+        
         # Energy fairness objective
-        """Calculate combined NSW considering both efficiency and energy fairness"""
-        # First term: reward/energy efficiency NSW
-        self.energy_efficiency_nsw = tf.reduce_prod(self.reward_per_energy) ** (1.0 / self.n_agents)
-        # Second term: energy fairness NSW
+        """Calculate combined NSW considering energy fairness"""
         self.energy_diffs = tf.abs(self.total_energy - self.avg_energy) + 1e-8
         self.energy_fairness_ratios =  self.avg_energy/ self.energy_diffs
         self.energy_fairness_nsw = tf.reduce_prod(self.energy_fairness_ratios) ** (1.0 / self.n_agents)
-        self.energy_fairness_loss_nsw = self.energy_efficiency_nsw * self.energy_fairness_nsw
-
-        # FTRL update for energy parameters
+        self.energy_fairness_loss_nsw = -self.energy_fairness_nsw
+        
         # Create energy optimization op in same scope
         with tf.variable_scope('optimizer', reuse=tf.AUTO_REUSE):
-            # Store cumulative gradients from previous iterations
-            self.prev_grad_sum = tf.Variable(tf.zeros_like(self.energy_params), trainable=False, name='prev_grad_sum')
-            # Get current gradient
-            curr_grad = tf.gradients(self.energy_fairness_loss_nsw, self.energy_params)[0]
-            curr_grad = tf.zeros_like(self.energy_params) if curr_grad is None else curr_grad
-             # FTRL update using only previous gradients
-            def ftrl_update(prev_grads, eta):
-                # Minimize: <lambda, -grad_sum> + (1/eta)*psi(lambda)
-                regularized_obj = tf.reduce_sum(self.energy_params * (-prev_grads)) + \
-                                 (1.0/eta) * log_barrier_regularizer(self.energy_params)
-                update_op = tf.train.AdamOptimizer(learning_rate=eta).minimize(regularized_obj)
-        
-                return update_op
-            # Update parameters using previous gradients
-            self.energy_train_op = ftrl_update(self.prev_grad_sum, self.ftrl_eta)
-            # Update gradient sum after getting new gradient
-            self.update_grad_sum = self.prev_grad_sum.assign_add(curr_grad)
+                self.energy_opt = tf.train.AdamOptimizer(self.energy_lr)
+                self.energy_train_op = self.energy_opt.minimize(
+                    self.energy_fairness_loss_nsw, 
+                    var_list=self.energy_params)
+
 
 
 
@@ -586,17 +559,17 @@ class LIOMetaNSW(object):
 
               
 
-        # Run FTRL energy update step
-        # Update parameters using previous gradients
-        sess.run(self.energy_train_op, feed_dict=feed)
-
-        # Get loss and update gradient sum for next iteration  
-        energy_loss, _ = sess.run(
-            [self.energy_fairness_loss_nsw, self.update_grad_sum],
-            feed_dict=feed
-        )
+        # Run energy update step
+        ops_to_run = [
+            self.energy_train_op,  # Update energy parameters 
+            self.energy_fairness_loss_nsw  # Get loss value for tracking
+        ]
+    
+        results = sess.run(ops_to_run, feed_dict=feed)
+        energy_loss = results[1]  # Energy fairness loss value
 
         return energy_loss
+
 
 
 

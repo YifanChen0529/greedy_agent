@@ -49,11 +49,7 @@ def get_config():
     config.lio.reward_energy_threshold = 0.2
     config.lio.energy_param = 2.0  # Higher energy impact for ER
     config.lio.ftrl_k = config.env.n_agents # Dimension of energy parameter space
-    config.lio.ftrl_eta = np.sqrt(
-        config.lio.ftrl_k * np.log(config.alg.n_episodes) /  # FTRL parameters for energy optimization
-        config.alg.n_episodes
-    )
-
+    
     config.main = configdict.ConfigDict()
     config.main.dir_name = 'er_n2_lio'
     config.main.exp_name = 'er'

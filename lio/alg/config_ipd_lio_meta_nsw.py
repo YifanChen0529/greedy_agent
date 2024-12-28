@@ -35,10 +35,7 @@ def get_config():
     config.lio.energy_lr = 0.01  # Energy update learning rate
     config.lio.energy_threshold = 0.1  # Threshold for energy difference
     config.lio.reward_energy_threshold = 0.1  # Threshold for reward/energy ratio
-    config.lio.ftrl_eta = np.sqrt(
-        config.env.n_agents * np.log(config.alg.n_episodes) /  # FTRL parameters for energy optimization
-        config.alg.n_episodes
-    )
+    
 
 
 
