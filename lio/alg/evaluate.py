@@ -68,6 +68,7 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
 
         while not done:
             list_actions = []
+            reward = [0] * env.n_agents 
 
             copy_list_agents = list_agents.copy()
             random.shuffle(copy_list_agents)

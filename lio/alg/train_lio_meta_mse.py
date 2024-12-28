@@ -58,26 +58,8 @@ def train(config):
     # Initialize agents
     list_agents = []
 
-    # Make the first agent normal
-    list_agents.append(MetaLIOMSE(config.lio, env.l_obs, env.l_action,
-                          config.nn, 'agent_0',
-                          config.env.r_multiplier, env.n_agents,
-                          0, energy_param=1.0))
     
-    # Make the second agent energy-wasteful
-    # list_agents.append(MetaLIOMSEBadEnergy(config.lio, env.l_obs, env.l_action,
-                                   # config.nn, 'agent_1',
-                                   # config.env.r_multiplier, env.n_agents,
-                                   # 1, energy_param=5.0))
-
-    # Second agent exploitative
-    list_agents.append(MetaLIOMSE_E(config.lio, env.l_obs, env.l_action,
-                      config.nn, 'agent_1',  
-                      config.env.r_multiplier, env.n_agents,
-                      1, energy_param=1.0))                                 
-    
-    # Additional agents can be normal
-    for agent_id in range(2, env.n_agents):
+    for agent_id in range(env.n_agents):
         agent = MetaLIOMSE(
             config.lio, env.l_obs, env.l_action,
             config.nn, f'agent_{agent_id}',
@@ -398,7 +380,7 @@ if __name__ == "__main__":
         # For ER(4,2) experiment
         n=4 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'LIO_Meta_MSE_Exploitative_test_ER42' # Directory for Exploitative agent logs
+        config.main.dir_name = 'LIO_Meta_MSE_test_ER42' # Directory for Exploitative agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num
