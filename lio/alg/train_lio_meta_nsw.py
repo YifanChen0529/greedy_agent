@@ -21,10 +21,9 @@ from lio.alg import evaluate
 from lio.env import ipd_wrapper
 from lio.env import room_symmetric
 from lio.alg.lio_meta_nsw import LIOMetaNSW
-# from lio.alg.lio_meta_mse_badenergy import MetaLIOMSEBadEnergy
-# from lio.alg.lio_meta_mse_greedy import greedy, adversarial
-# from lio_meta_mse_greedy import MetaLIOMSE as MetaLIOMSE_G
-# from lio_meta_mse_exploitative import ExploitativeMetaLIOMSE as MetaLIOMSE_E
+from lio.alg.lio_meta_nsw_exploitative import ExploitativeMetaLIONSW as LIOMetaNSW_E
+from lio.alg.lio_meta_mse_greedy import greedy, adversarial
+from lio_meta_nsw_greedy import LIOMetaNSW as LIOMetaNSW_G
 
 
 def train(config):
@@ -59,6 +58,10 @@ def train(config):
     list_agents = []
 
     # Make the first agent normal
+    list_agents.append(LIOMetaNSW(config.lio, env.l_obs, env.l_action,
+                                  config.nn, 'agent_0',
+                                  config.env.r_multiplier, env.n_agents,
+                                  0, energy_param=1.0))
     
     
     # Make the second agent energy-wasteful
@@ -67,11 +70,14 @@ def train(config):
                                    # config.env.r_multiplier, env.n_agents,
                                    # 1, energy_param=5.0))
 
-    # Second agent exploitative
-                              
+    # Second agent greedy
+    list_agents.append(LIOMetaNSW_G(config.lio, env.l_obs, env.l_action,
+                                  config.nn, 'agent_1',
+                                  config.env.r_multiplier, env.n_agents,
+                                  1, energy_param=1.0))                         
     
     # Additional agents can be normal
-    for agent_id in range(env.n_agents):
+    for agent_id in range(2, env.n_agents):
         agent = LIOMetaNSW(
             config.lio, env.l_obs, env.l_action,
             config.nn, f'agent_{agent_id}',
@@ -392,7 +398,7 @@ if __name__ == "__main__":
         # For ER(4,2) experiment
         n=4 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'LIO_Meta_NSW_test_ER42' 
+        config.main.dir_name = 'LIO_Meta_NSW_Partial Communication_test_ER42' 
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d' % args.num
