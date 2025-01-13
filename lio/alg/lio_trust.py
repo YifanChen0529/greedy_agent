@@ -33,15 +33,16 @@ class LIOTrust(object):
         self.episode_count = 0  # Initialize counter
 
         # Trust parameters
-        self.trust_update_freq = 100  # Update every 100 episodes 
-        self.trust_window = 100  # Use last 100 episodes for statistics
-        self.trust_momentum = 0.8  # Smoothing factor
+        self.trust_update_freq = 50  # Update every 50 episodes 
+        self.trust_window = 50  # Use last 50 episodes for statistics
+        self.trust_momentum = 0.3  # Smoothing factor
         self.trust_values = np.ones((n_agents, n_agents))  # Initialize optimistically
 
         # Policy buffers for trust computation
         self.policy_buffer_size = 1000
         self.policy_buffers = {i: [] for i in range(n_agents)}
         self.reward_buffers = {i: [] for i in range(n_agents)}
+        self.action_history = {i: [] for i in range(n_agents)}  # Store actual actions taken by each agent
 
         # Core LIO parameters
         self.entropy_coeff = config.entropy_coeff
@@ -68,80 +69,107 @@ class LIOTrust(object):
         self.policy_new = PolicyNew
         print(f"Initializing LIO_Trust agent {self.agent_name} with energy_param: {energy_param}")
 
-    def calculate_policy_divergence(self, policies_i, policies_j):
-        """Calculate Jensen-Shannon divergence between policy distributions.
+    def calculate_behavioral_divergence(self, agent_i, agent_j, window_size):
+        """Calculate general behavioral divergence between agents by Jensen-Shannon divergence 
     
         Args:
-            policies_i: List of policy distributions from agent i over episodes
-            policies_j: List of policy distributions from agent j over episodes
-    
+            agent_i, agent_j: Agent objects with action histories
+            window_size: Number of recent actions to analyze
+        
         Returns:
-            Average JS divergence between the policy distributions
+            Average JS divergence between the actual behavior distributions
         """
-        # Get the most recent window of episodes
-        n = min(self.trust_window, len(policies_i), len(policies_j))
-        policies_i = policies_i[-n:]  
-        policies_j = policies_j[-n:]
 
-        # Calculate JS divergence for each episode
-        divergences = []
-        for p_i, p_j in zip(policies_i, policies_j):
-            # Calculate midpoint distribution
-            m = 0.5 * (p_i + p_j)
+        # Get recent action sequences
+        actions_i = np.array(self.action_history[agent_i][-window_size:])
+        actions_j = np.array(self.action_history[agent_j][-window_size:])
+
+        if len(actions_i) == 0 or len(actions_j) == 0:
+           return 0.0  # Return 0 divergence if no history yet
+    
+        # Calculate action frequencies for each agent
+        n_actions = self.l_action
+        freq_i = np.zeros(n_actions)
+        freq_j = np.zeros(n_actions)
+    
+        for action in range(n_actions):
+           freq_i[action] = np.mean(actions_i == action)
+           freq_j[action] = np.mean(actions_j == action)
+
         
-            # Calculate KL divergences using log base 2
-            kl_i_m = np.sum(p_i * (np.log2(p_i + 1e-10) - np.log2(m + 1e-10)))
-            kl_j_m = np.sum(p_j * (np.log2(p_j + 1e-10) - np.log2(m + 1e-10)))
+        # Calculate JS divergence between frequency distributions
+        m = 0.5 * (freq_i + freq_j)  # Midpoint distribution
+        kl_i_m = np.sum(freq_i * (np.log2(freq_i + 1e-10) - np.log2(m + 1e-10)))
+        kl_j_m = np.sum(freq_j * (np.log2(freq_j + 1e-10) - np.log2(m + 1e-10)))
+        js_div = 0.5 * (kl_i_m + kl_j_m)
+
         
-            # JS divergence is average of KL divergences
-            js = 0.5 * (kl_i_m + kl_j_m)
-            divergences.append(js)
+        return js_div
 
-        # Return average divergence over episodes
-        return np.mean(divergences)
+    
+    def calculate_reward_ratio(self, agent_i, agent_j, window_size):
+        """Calculate normalized reward ratio using actual environment rewards from history.
+        
+        Args:
+           agent_i: Incentive giver 
+           agent_j: Incentive receiver
+           window_size: Number of recent rewards to analyze
+            
+        Returns:
+           Normalized reward ratio between agents
+        """
+        # Get recent environment rewards from buffer
+        rewards_i = self.reward_buffers[agent_i][-window_size:]  
+        rewards_j = self.reward_buffers[agent_j][-window_size:]
 
-    def calculate_reward_ratio(self, rewards):
-        """Calculate normalized reward ratio using z-score."""
-        z_score = (rewards - np.mean(rewards)) / (np.std(rewards) + 1e-10)
-        return 1 / (1 + np.exp(z_score))
+        if len(rewards_i) == 0 or len(rewards_j) == 0:
+           return 1.0  # Return neutral ratio if no history yet
 
+        # Calculate average reward for each agent
+        mean_i = np.mean([np.mean(ep_rewards) for ep_rewards in rewards_i])
+        mean_j = np.mean([np.mean(ep_rewards) for ep_rewards in rewards_j])
+        std_i = np.std([np.mean(ep_rewards) for ep_rewards in rewards_i])
+        
+        # Calculate reward ratio using z-score normalization
+        z_score = (mean_i - mean_j) / (std_i + 1e-10)
+        reward_ratio = 1 / (1 + np.exp(z_score))  # Convert to [0,1] range
+
+        return reward_ratio
+    
     def update_trust(self, policy_buffers, reward_buffers):
         """Update trust values based on policy divergence and reward patterns.
         Uses episode-level statistics and smoothed updates.
+        trust_values[incentive_receiver, incentive_giver]: how much receiver trusts giver
         """
         smooth_alpha = self.trust_momentum  # Smoothing factor
         window = self.trust_window  # Number of episodes to use
+
+        
 
         for i in range(self.n_agents):
             if i == self.agent_id:
                 continue
             
             if len(policy_buffers[i]) > 0:
-                # Calculate policy divergence between distributions
-                # Get policy distributions from recent episodes
-                policies_other = np.array(policy_buffers[i][-window:])  # Other agent
-                policies_self = np.array(policy_buffers[self.agent_id][-window:])  # Self
-                div = self.calculate_policy_divergence(policies_other, policies_self)
+                # Calculate behavior divergence between distributions
+                div = self.calculate_behavioral_divergence(i, self.agent_id, window)
                 
                 # Normalize divergence to [0,1]
                 # JS divergence is bounded by [0, 1] when using log base 2
-                policy_similarity = 1 - div
+                behavior_similarity = 1 - div
                 
                 # Calculate reward ratio using recent episodes 
-                recent_rewards_other = np.array([np.mean(ep_rewards) for ep_rewards in reward_buffers[i][-window:]])
-                all_rewards_other = np.array([np.mean(ep_rewards) for ep_rewards in reward_buffers[i]])
-                z_score = (np.mean(recent_rewards_other) - np.mean(all_rewards_other)) / (np.std(all_rewards_other) + 1e-10)
-                reward_ratio = 1 / (1 + np.exp(z_score))
+                reward_ratio = self.calculate_reward_ratio(i, self.agent_id, window)
                 
                 # Calculate new trust value
-                new_trust = np.sqrt(policy_similarity * reward_ratio)
+                new_trust = np.sqrt(behavior_similarity * reward_ratio)
                 
                 # Smooth update
                 self.trust_values[self.agent_id, i] = \
-                    smooth_alpha * new_trust + (1 - smooth_alpha) * self.trust_values[i, self.agent_id]
+                    smooth_alpha * new_trust + (1 - smooth_alpha) * self.trust_values[self.agent_id, i]
                 
-                print(f"Trust update between agent {self.agent_id} and {i}:")
-                print(f"  Policy divergence: {div:.4f}")
+                print(f"  Update for how much agent {self.agent_id} trusts {i}:")
+                print(f"  Behavior divergence: {div:.4f}")
                 print(f"  Reward ratio: {reward_ratio:.4f}") 
                 print(f"  New trust: {new_trust:.4f}")
                 print(f"  Updated trust: {self.trust_values[self.agent_id, i]:.4f}")
@@ -379,18 +407,25 @@ class LIOTrust(object):
         
                feed = {self.obs: buf.obs, self.epsilon: epsilon}
                episode_policies = sess.run(self.probs, feed_dict=feed)
+
                
             
                # Add to episode history buffers
                self.policy_buffers[i].append(episode_policies)
                self.reward_buffers[i].append(buf.reward)
+               self.action_history[i].extend(buf.action)
+
+               
             
                # Maintain buffer of last N episodes
                if len(self.policy_buffers[i]) > self.policy_buffer_size:
-                   self.policy_buffers[i].pop(0)
+                   self.policy_buffers[i] = self.policy_buffers[i][-self.trust_window:]
                if len(self.reward_buffers[i]) > self.policy_buffer_size:
-                   self.reward_buffers[i].pop(0)
+                   self.reward_buffers[i] = self.reward_buffers[i][-self.trust_window:]
+               if len(self.action_history[i]) > self.policy_buffer_size:
+                   self.action_history[i] = self.action_history[i][-self.trust_window:]
 
+               
         # Update trust values using episode-level statistics 
         if self.episode_count % self.trust_update_freq == 0:
             self.update_trust(self.policy_buffers, self.reward_buffers)
