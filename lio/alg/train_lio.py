@@ -83,27 +83,13 @@ def train(config):
     list_agents = []
 
     # First agent normal
-    list_agents.append(LIO(config.lio, env.l_obs, env.l_action,
-                                 config.nn, 'agent_0',
-                                 config.env.r_multiplier, env.n_agents,
-                                 0, 1.0))
+    # list_agents.append(LIO(config.lio, env.l_obs, env.l_action,config.nn, 'agent_0',config.env.r_multiplier, env.n_agents,0, 1.0))
     
     # Second agent exploitative
-    list_agents.append(LIO_E(config.lio, env.l_obs, env.l_action,
-                                    config.nn, 'agent_1',
-                                    config.env.r_multiplier, env.n_agents,
-                                    1, 1.0))
+    # list_agents.append(LIO_E(config.lio, env.l_obs, env.l_action,config.nn, 'agent_1',config.env.r_multiplier, env.n_agents,1, 1.0))
     
-    for agent_id in range(2, env.n_agents):
-       if config.lio.decentralized:
-            list_agent_id_opp = list(range(env.n_agents))
-            del list_agent_id_opp[agent_id]
-            list_agents.append(LIO(config.lio, env.l_obs, env.l_action,
-                               config.nn, 'agent_%d' % agent_id,
-                               config.env.r_multiplier, env.n_agents,
-                               agent_id, list_agent_id_opp, energy_param=1.0))
-       else:
-            list_agents.append(LIO(config.lio, env.l_obs, env.l_action,
+    for agent_id in range(env.n_agents):
+        list_agents.append(LIO(config.lio, env.l_obs, env.l_action,
                                config.nn, 'agent_%d' % agent_id,
                                config.env.r_multiplier, env.n_agents,
                                agent_id, 1.0))
@@ -429,7 +415,8 @@ if __name__ == '__main__':
         # For ER(4,2) experiment
         n=4 # Number of agents in the Escape Room
         m=2 # Minimum number of agents required at lever to trigger outcome
-        config.main.dir_name = 'LIO_Exploitative_test_ER42'  # Directory for exploitative agent logs
+        # config.main.dir_name = 'LIO_Exploitative_test_ER42'  # Directory for exploitative agent logs
+        config.main.dir_name = 'LIO_normal_test_ER42' # Directory for normal agent logs
         config.env.min_at_lever = m
         config.env.n_agents = n
         config.main.exp_name = 'er%d'%args.num
