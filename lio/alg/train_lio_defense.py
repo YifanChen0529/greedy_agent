@@ -132,7 +132,7 @@ def train(config):
 
     list_agent_meas = []
     if config.env.name == 'er':
-        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door',
+        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door', ## Debugging: Yifan incentive log not shown
                    'received', 'given', 'r-lever', 'r-start', 'r-door', 
                    'win_rate', 'total_energy', 'reward_per_energy']
     elif config.env.name == 'ipd':

@@ -12,6 +12,7 @@ class LIO(object):
 
     def __init__(self, config, l_obs, l_action, nn, agent_name,
                  r_multiplier=2, n_agents=1, agent_id=0, energy_param=1.0):
+        # print(f"Methods in LIO class: {dir(self)}")  # Debug print
         self.alg_name = 'lio'
         self.l_obs = l_obs
         self.l_action = l_action

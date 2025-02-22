@@ -7,7 +7,7 @@ Three versions of LIO:
 """
 
 from __future__ import division
-from __future__ import print_function
+from __future__ import _function
 
 import sys, os
 sys.path.append(os.path.abspath(os.path.join('../..')))
