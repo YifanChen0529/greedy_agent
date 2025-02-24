@@ -21,6 +21,7 @@ class LIODefense(object):
         self.n_agents = n_agents
         self.agent_id = agent_id
         self.energy_param = energy_param  # New parameter for energy
+        self.min_at_lever = 2 # Minimum agents needed to pull lever for ER(4,2) case
         # Initialize weight parameters        
         self.sigma1 = tf.Variable(1.0, name='sigma1')     
         self.sigma2 = tf.Variable(1.0, name='sigma2') 
@@ -50,6 +51,30 @@ class LIODefense(object):
         self.create_networks()
         self.policy_new = PolicyNew
         print(f"Initializing LIO Defense agent {self.agent_name} with energy_param: {energy_param}")
+
+    def get_num_at_lever(self, state):
+        """Gets number of agents currently at lever position.
+    
+        Args:
+           state: Current observation state of shape [n_agents]
+        
+        Returns:
+           int: Number of agents currently at position 0 (lever)
+        """
+        # Since action 0 is lever-pulling, we can count how many agents 
+        # are at position where they can take this action
+        if len(state.shape) > 1:
+           # If state is batched, take first example
+           state = state[0]
+        
+        # Count agents at lever position
+        num_at_lever = 0
+        for agent_idx in range(self.n_agents):
+           # We assume state encodes agent positions where 0=lever position
+           if state[agent_idx] == 0:  
+               num_at_lever += 1
+            
+        return num_at_lever       
 
         
     def create_networks(self):
@@ -97,8 +122,42 @@ class LIODefense(object):
         self.list_of_agents = list_of_agents
 
     def calculate_energy_cost(self, state, action):
-    # This function calculates the energy consumed based on the current state, action, and agent-specific energy parameter
-        return self.energy_param * np.abs(action) * (1 + state.mean())
+        """Calculate energy cost that reflects both physical effort and contribution.
+    
+        Args:
+            state: Current state showing if M agents are at lever
+            action: Action taken (0: lever, 1: move, 2: door) 
+        Returns:
+            energy_cost: Amount of energy consumed for this action
+        """
+        # Base physical energy costs
+        MOVE_BASE_COST = 1.0
+        LEVER_BASE_COST = 3.0
+        DOOR_BASE_COST = 1.0
+    
+        # Get number of agents currently at lever from state
+        num_at_lever = self.get_num_at_lever(state)
+        min_required = self.min_at_lever  # e.g. 2 for ER(4,2)
+    
+        if action == 0:  # Lever pulling
+           # Higher cost for being first/early lever puller vs joining others
+           solo_factor = 2.0 if num_at_lever == 0 else 1.0
+           return self.energy_param * LEVER_BASE_COST * solo_factor
+        
+        elif action == 1:  # Moving
+           return self.energy_param * MOVE_BASE_COST
+        
+        elif action == 2:  # Door
+            if num_at_lever >= min_required:
+               # Door action costs less when others have done the work
+               # of pulling lever - this captures exploitation
+               return self.energy_param * DOOR_BASE_COST * 0.5
+            else:
+               # Failed door attempt costs normal movement energy
+               return self.energy_param * DOOR_BASE_COST
+            
+        else:
+            raise ValueError(f"Invalid action: {action}")
 
     def run_actor(self, obs, sess, epsilon, prime=False):
         feed = {self.obs: np.array([obs]), self.epsilon: epsilon}
@@ -115,11 +174,10 @@ class LIODefense(object):
     def give_reward(self, obs, action_all, sess):
         """Debug incentive rewards between agents."""
         if not self.can_give:
-           print(f"Agent {self.agent_id} cannot give rewards!")
+           # print(f"Agent {self.agent_id} cannot give rewards!")
            return np.zeros(self.n_agents)
     
-        print(f"\n=== Agent {self.agent_id} Giving Rewards ===")
-        print(f"Observing actions: {action_all}")
+        
         action_others_1hot = util.get_action_others_1hot(action_all, self.agent_id,
                                                          self.l_action)
         feed = {self.obs: np.array([obs]),
@@ -127,10 +185,7 @@ class LIODefense(object):
         reward = sess.run(self.reward_function, feed_dict=feed)
         reward = reward.flatten() * self.r_multiplier
 
-        # Print rewards given to each agent
-        for i, r in enumerate(reward):
-            if i != self.agent_id:  # Skip self
-               print(f"Before buffer, giving reward {r:.3f} to Agent {i}")
+        
         
 
         return reward
@@ -270,6 +325,7 @@ class LIODefense(object):
                                     self.reg_coeff * total_given)
 
         # weighted loss of original reward loss with NSW fairness
+        # the negative one of the true value, as to maximize the total loss
         self.total_loss = (1.0/(self.sigma1**2)) * self.reward_loss + \
                     (1.0/(self.sigma2**2)) * (-self.nsw_fairness) - \
                      2.0 * tf.math.log(self.sigma1) - \
@@ -336,25 +392,22 @@ class LIODefense(object):
         buf_self = list_buf[self.agent_id]
         buf_self_new = list_buf_new[self.agent_id]
 
-        print(f"\nBUFFER DEBUG - Agent {self.agent_id}:")
-        print(f"Raw r_from_others in buffer: {buf_self.r_from_others}")
-        print(f"Buffer rewards: {buf_self.reward}")
+        
 
         n_steps = len(buf_self.obs)
         ones = np.ones(n_steps)
 
         feed = {self.r_ext: buf_self.reward}
-
         # Process r_from_others to extract just the rewards received by this agent
         processed_rewards = []
         for r_matrix in buf_self.r_from_others:
             # Get the column corresponding to rewards received by this agent
             rewards_received = r_matrix[:, self.agent_id]
             processed_rewards.append(np.sum(rewards_received))  # Sum rewards from all other agents
-    
-        # Update feed with processed rewards
-        feed[self.r_from_others] = processed_rewards
 
+        # Update feed with processed rewards 
+        feed[self.r_from_others] = processed_rewards
+        
         for agent in self.list_of_agents:
             other_id = agent.agent_id
             if other_id == self.agent_id:
@@ -416,22 +469,10 @@ class LIODefense(object):
         if self.agent_id not in feed:
            nsw_feed[self.r_ext] = buf_self.reward
 
-        # Debug prints with tensor evaluation
-        reward_vals = sess.run(self.r_ext, feed_dict=feed)
-    
-        for i, val in enumerate(reward_vals):
-            if i == self.agent_id:
-               print(f"NSW DEBUG - Agent {self.agent_id} own reward: {val}")
-            else:
-                print(f"NSW DEBUG - Agent {self.agent_id} sees reward from {i}: {val}")
+        
             
-        # Similarly for loss debugging
-        loss_vals = sess.run([self.reward_loss, self.nsw_fairness, self.total_loss], feed_dict=nsw_feed)
-        print(f"LOSS DEBUG - Agent {self.agent_id}:")
-        print(f"reward_loss: {-loss_vals[0]}")
-        print(f"nsw_fairness: {-loss_vals[1]}")  
-        print(f"total_loss: {-loss_vals[2]}")  
-
+        
+        
         
 
         if self.separate_cost_optimizer:

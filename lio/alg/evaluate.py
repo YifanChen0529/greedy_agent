@@ -91,7 +91,7 @@ def test_room_symmetric(n_eval, env, sess, list_agents,
             # entry (i,j) is reward that agent i gives to agent j
             matrix_given = np.zeros((env.n_agents, env.n_agents))
             for agent in list_agents:
-                if alg in ['lio', 'meta-lio', 'meta-lio-mse']:
+                if alg in ['lio', 'meta-lio', 'meta-lio-mse', 'lio-defense']:
                     reward = agent.give_reward(list_obs[agent.agent_id], list_actions, sess)
                 elif alg == 'pg':
                     reward, _ = agent.give_reward(list_obs[agent.agent_id], list_actions, sess)

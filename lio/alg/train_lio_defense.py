@@ -132,7 +132,7 @@ def train(config):
 
     list_agent_meas = []
     if config.env.name == 'er':
-        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door', ## Debugging: Yifan incentive log not shown
+        list_suffix = ['reward_total', 'reward_env', 'n_lever', 'n_door', 
                    'received', 'given', 'r-lever', 'r-start', 'r-door', 
                    'win_rate', 'total_energy', 'reward_per_energy']
     elif config.env.name == 'ipd':
@@ -276,13 +276,10 @@ def run_episode(sess, env, list_agents, epsilon, prime=False):
             if agent.can_give: # here exchange happens
                 reward = agent.give_reward(list_obs[agent.agent_id],
                                            list_actions, sess)
-                print(f"\nAgent {idx} rewards being added to buffer:")
-                print(f"Raw reward: {reward}")
             else:
                 reward = np.zeros(env.n_agents)
             reward[agent.agent_id] = 0
             total_reward_given_to_each_agent[idx] += reward
-            print(f"Total rewards matrix:\n{total_reward_given_to_each_agent}")
             reward = np.delete(reward, agent.agent_id)
             list_rewards[agent.agent_id] = reward
 
@@ -340,7 +337,6 @@ class Buffer(object):
         self.total_energy += energy # Update total energy consumed by the agent
 
     def add_r_from_others(self, r):
-        print(f"Adding rewards to buffer: {r}")
         self.r_from_others.append(r)
 
     def add_action_all(self, list_actions):
